@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # PHP-Apache Web Server
+  web:
+    image: php:7.4-apache
+    container_name: bookstore_web
+    ports:
+      - "8080:80"
+    volumes:
+      - ./bookstore:/var/www/html
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=${MYSQL_USER}
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+      - DB_NAME=${MYSQL_DATABASE}
+    depends_on:
+      - mysql
+    networks:
+      - bookstore_network
+    command: >
+      bash -c "docker-php-ext-install mysqli pdo pdo_mysql
+      && apache2-foreground"
+
+  # MySQL Database Server
+  mysql:
+    image: mysql:8.0
+    container_name: bookstore_mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./bookstore/database.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - bookstore_network
+
+  # PHPMyAdmin for Database Management
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: bookstore_phpmyadmin
+    ports:
+      - "8081:80"
+    environment:
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+      - PMA_USER=root
+      - PMA_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - UPLOAD_LIMIT=50M
+    depends_on:
+      - mysql
+    networks:
+      - bookstore_network
+
+networks:
+  bookstore_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local

@@ -1,0 +1,147 @@
+# =============================================================================
+# Docker Compose for Local Development
+# =============================================================================
+# This file sets up the Java (Spring Boot) application with local dependencies.
+# Run with: docker-compose up -d
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # Main Application
+  # ===========================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build  # Use build stage for development (includes JDK)
+    container_name: projectname-app
+    ports:
+      - "8080:8080"    # HTTP
+    environment:
+      - SPRING_PROFILES_ACTIVE=development
+      - SERVER_PORT=8080
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/projectnamedb
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=YourStrong!Password123
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+    volumes:
+      - .:/app                             # Mount source for development
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - projectname-network
+    # For development with auto-reload (using spring-boot-devtools):
+    command: mvn spring-boot:run -Dspring-boot.run.jvmArguments="-Dserver.port=8080"
+
+  # ===========================================================================
+  # PostgreSQL Database (replaces MySQL from PHP)
+  # ===========================================================================
+  db:
+    image: postgres:16-alpine
+    container_name: projectname-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=projectnamedb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=YourStrong!Password123
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - projectname-network
+
+  # ===========================================================================
+  # Redis Cache (replaces PHP file/array cache)
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: projectname-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - projectname-network
+
+  # ===========================================================================
+  # Azure Storage Emulator (Azurite) - replaces local file storage
+  # ===========================================================================
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: projectname-azurite
+    ports:
+      - "10000:10000"  # Blob
+      - "10001:10001"  # Queue
+      - "10002:10002"  # Table
+    volumes:
+      - azurite-data:/data
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0
+    networks:
+      - projectname-network
+
+  # ===========================================================================
+  # Seq - Log aggregation (optional, for viewing structured logs)
+  # ===========================================================================
+  seq:
+    image: datalust/seq:latest
+    container_name: projectname-seq
+    ports:
+      - "5341:5341"    # Ingestion API
+      - "8082:80"      # Web UI
+    environment:
+      - ACCEPT_EULA=Y
+    volumes:
+      - seq-data:/data
+    networks:
+      - projectname-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres-data:
+  redis-data:
+  azurite-data:
+  seq-data:
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  projectname-network:
+    driver: bridge
+
+# =============================================================================
+# Usage:
+# =============================================================================
+# Start all services:
+#   docker-compose up -d
+#
+# Start with build:
+#   docker-compose up -d --build
+#
+# View logs:
+#   docker-compose logs -f app
+#
+# Stop all services:
+#   docker-compose down
+#
+# Stop and remove volumes:
+#   docker-compose down -v
+#
+# Run database migrations (Flyway):
+#   docker-compose exec app mvn flyway:migrate
+#
+# Access PostgreSQL:
+#   docker-compose exec db psql -U postgres -d projectnamedb
+# =============================================================================
