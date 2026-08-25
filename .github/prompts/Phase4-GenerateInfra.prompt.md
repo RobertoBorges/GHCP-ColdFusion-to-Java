@@ -1,5 +1,5 @@
 ---
-agent: agent
+agent: 'ColdFusion to Java Migration'
 model: Claude Sonnet 5 (copilot)
 tools: [vscode, execute, read, browser, edit, search, web, azure/search]
 ---
