@@ -1,7 +1,7 @@
 ---
 agent: agent
-model: Claude Sonnet 4.5 (copilot)
-tools: ['search/codebase', 'search/usages', 'vscode/vscodeAPI', 'read/problems', 'search/changes', 'execute/testFailure', 'vscode/runCommand', 'read/terminalLastCommand', 'vscode/openSimpleBrowser', 'web/fetch', 'search/searchResults', 'web/githubRepo', 'vscode/extensions', 'execute/runTests', 'edit/editFiles', 'search', 'azure-mcp/*']
+model: Claude Sonnet 5 (copilot)
+tools: [vscode, execute, read, browser, edit, search, web, azure/search]
 ---
 
 # Phase 4: Generate Infrastructure as Code for Azure Deployment
@@ -91,7 +91,7 @@ Configure Java-specific runtime settings:
 - For AKS: JDK 21-based container images
 
 Configure Spring Boot environment variables:
-- `SPRING_PROFILES_ACTIVE` for environment-specific configuration (replaces `ASPNETCORE_ENVIRONMENT`)
+- `SPRING_PROFILES_ACTIVE` for environment-specific configuration (replaces the ColdFusion server/environment settings from `settings.ini.cfm` / `settings.local.cfm`)
 - `spring.datasource.url`, `spring.datasource.username`, `spring.datasource.password` for database connections
 - `server.port=8080` for the application port
 

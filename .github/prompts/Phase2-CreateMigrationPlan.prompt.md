@@ -1,14 +1,14 @@
 ---
 agent: agent
-model: Claude Sonnet 4.5 (copilot)
-tools: ['search/codebase', 'search/usages', 'vscode/vscodeAPI', 'read/problems', 'search/changes', 'execute/testFailure', 'vscode/runCommand', 'read/terminalLastCommand', 'vscode/openSimpleBrowser', 'web/fetch', 'search/searchResults', 'web/githubRepo', 'vscode/extensions', 'execute/runTests', 'edit/editFiles', 'search', 'azure-mcp/*']
+model: Claude Sonnet 5 (copilot)
+tools: [vscode, execute, read, browser, edit, search, web, azure/search]
 ---
 
 # Phase 2: Detailed File-by-File Migration Plan
 
 ## Objective
 
-Create a comprehensive, file-by-file migration plan that documents exactly how each PHP file with business logic will be migrated to Java / Spring Boot. This plan ensures the model has complete context when executing migrations.
+Create a comprehensive, file-by-file migration plan that documents exactly how each ColdFusion (CFML) file with business logic will be migrated to Java / Spring Boot. This plan ensures the model has complete context when executing migrations.
 
 **Prerequisites**: 
 - Phase 0: `Application-Discovery-Report.md` completed
@@ -20,7 +20,7 @@ When migrating code, the model needs to understand:
 1. **What** each file does (purpose, responsibilities)
 2. **How** it interacts with other components (dependencies)
 3. **Where** it should go in Java / Spring Boot (target structure)
-4. **What patterns** to use (PHP → Java mapping)
+4. **What patterns** to use (CFML → Java mapping)
 5. **What order** to migrate (dependency chain)
 
 This phase creates that complete context.
@@ -37,7 +37,7 @@ read_file: reports/Technical-Assessment-Report.md
 ```
 
 Extract:
-- Component inventory (controllers, models, services, views)
+- Component inventory (handlers/pages, components/models, services, views)
 - Business logic locations
 - User's target architecture preferences
 - Technology mapping decisions
@@ -136,102 +136,103 @@ Based on user preferences from Phase 1, define the target Java / Spring Boot pro
 
 ## Step 3: Create File-by-File Migration Plan
 
-### 3.1 Controllers Migration Plan
+### 3.1 Request Handlers / Pages Migration Plan
 
-For each PHP controller discovered in Phase 0:
+For each ColdFusion request handler (`.cfc`) or `.cfm` controller page discovered in Phase 0:
 
 ```markdown
-### Controller: [ControllerName]
+### Handler / Page: [ControllerName]
 
 | Property | Value |
 |----------|-------|
-| **Source File** | `app/Http/Controllers/UserController.php` |
+| **Source File** | `handlers/User.cfc` (or `users.cfm`) |
 | **Target File** | `src/main/java/com/example/projectname/controller/UserController.java` |
 | **Purpose** | Handle user CRUD operations and authentication |
 | **HTTP Methods** | GET, POST, PUT, DELETE |
 
 #### Actions/Methods Mapping
 
-| PHP Method | HTTP | Route | Java Method | Notes |
-|------------|------|-------|-------------|-------|
-| `index()` | GET | /users | `@GetMapping list()` | Returns view or ResponseEntity |
-| `show($id)` | GET | /users/{id} | `@GetMapping("/{id}") show(@PathVariable Long id)` | Validate id exists |
-| `store(Request $request)` | POST | /users | `@PostMapping create(@Valid @RequestBody CreateUserDto dto)` | Use DTO + Bean Validation |
-| `update(Request $request, $id)` | PUT | /users/{id} | `@PutMapping("/{id}") update(@PathVariable Long id, @Valid @RequestBody UpdateUserDto dto)` | |
-| `destroy($id)` | DELETE | /users/{id} | `@DeleteMapping("/{id}") delete(@PathVariable Long id)` | Soft delete if applicable |
+| CFML Function / Action | HTTP | Route | Java Method | Notes |
+|------------------------|------|-------|-------------|-------|
+| `index()` / `url.action=list` | GET | /users | `@GetMapping list()` | Returns view or ResponseEntity |
+| `show(id)` | GET | /users/{id} | `@GetMapping("/{id}") show(@PathVariable Long id)` | Validate id exists |
+| `save(rc)` (from `form` scope) | POST | /users | `@PostMapping create(@Valid @RequestBody CreateUserDto dto)` | Use DTO + Bean Validation |
+| `update(id, rc)` | PUT | /users/{id} | `@PutMapping("/{id}") update(@PathVariable Long id, @Valid @RequestBody UpdateUserDto dto)` | |
+| `delete(id)` | DELETE | /users/{id} | `@DeleteMapping("/{id}") delete(@PathVariable Long id)` | Soft delete if applicable |
 
 #### Dependencies
 - **Injected Services**: `UserService`, `Logger` (via SLF4J)
 - **Used Models**: `User`, `CreateUserDto`, `UpdateUserDto`
 - **Security**: `@PreAuthorize` annotation
 
-#### Business Logic in Controller
-⚠️ If controller contains business logic, document for extraction:
+#### Business Logic in Handler/Page
+⚠️ CFML often mixes logic, SQL, and presentation in the same `.cfm` page. Document for extraction:
 | Logic | Current Location | Target Location |
 |-------|-----------------|-----------------|
-| Email validation | `store()` method | `UserService.validateEmail()` |
-| Role assignment | `store()` method | `UserService.assignDefaultRole()` |
+| Email validation | `save()` / inline in page | `UserService.validateEmail()` |
+| Role assignment | `save()` / inline in page | `UserService.assignDefaultRole()` |
+| Inline `<cfquery>` | Within the `.cfm` page | Repository / Service |
 
 #### Migration Complexity: [Low/Medium/High]
 #### Estimated Effort: [X hours]
 ```
 
-### 3.2 Models/Entities Migration Plan
+### 3.2 Components/Entities Migration Plan
 
-For each PHP model:
+For each ColdFusion component / CF-ORM persistent CFC:
 
 ```markdown
-### Model: [ModelName]
+### Component: [ModelName]
 
 | Property | Value |
 |----------|-------|
-| **Source File** | `app/Models/User.php` |
+| **Source File** | `cfcs/User.cfc` |
 | **Target File** | `src/main/java/com/example/projectname/entity/User.java` |
 | **Database Table** | `users` |
 | **Primary Key** | `id` (auto-increment) |
 
 #### Properties Mapping
 
-| PHP Property | PHP Type | Java Property | Java Type | Notes |
-|--------------|----------|---------------|-----------|-------|
-| `$id` | int | `id` | `Long` | Primary key, @Id @GeneratedValue |
-| `$email` | string | `email` | `String` | Required, unique |
-| `$password` | string | `passwordHash` | `String` | Hashed |
-| `$name` | string | `name` | `String` | Max 100 chars |
-| `$created_at` | Carbon | `createdAt` | `LocalDateTime` | @CreatedDate |
-| `$updated_at` | Carbon | `updatedAt` | `LocalDateTime` | @LastModifiedDate, nullable |
-| `$deleted_at` | Carbon | `deletedAt` | `LocalDateTime` | Soft delete, nullable |
+| CFML Property (`<cfproperty>`) | CFML Type | Java Property | Java Type | Notes |
+|--------------------------------|-----------|---------------|-----------|-------|
+| `id` | numeric | `id` | `Long` | Primary key, @Id @GeneratedValue |
+| `email` | string | `email` | `String` | Required, unique |
+| `password` | string | `passwordHash` | `String` | Hashed |
+| `name` | string | `name` | `String` | Max 100 chars |
+| `created_at` | date | `createdAt` | `LocalDateTime` | @CreatedDate |
+| `updated_at` | date | `updatedAt` | `LocalDateTime` | @LastModifiedDate, nullable |
+| `deleted_at` | date | `deletedAt` | `LocalDateTime` | Soft delete, nullable |
 
 #### Relationships
 
-| PHP Relationship | Type | Related Model | JPA Annotation | Notes |
-|------------------|------|---------------|----------------|-------|
-| `orders()` | hasMany | Order | `@OneToMany(mappedBy = "user") List<Order> orders` | |
-| `role()` | belongsTo | Role | `@ManyToOne @JoinColumn(name = "role_id") Role role` | FK |
-| `profile()` | hasOne | Profile | `@OneToOne(mappedBy = "user") Profile profile` | |
+| CFML Relationship (`fieldtype`) | Type | Related Component | JPA Annotation | Notes |
+|---------------------------------|------|-------------------|----------------|-------|
+| `orders` (`fieldtype="one-to-many"`) | one-to-many | Order | `@OneToMany(mappedBy = "user") List<Order> orders` | |
+| `role` (`fieldtype="many-to-one"`) | many-to-one | Role | `@ManyToOne @JoinColumn(name = "role_id") Role role` | FK |
+| `profile` (`fieldtype="one-to-one"`) | one-to-one | Profile | `@OneToOne(mappedBy = "user") Profile profile` | |
 
-#### Eloquent Scopes → Spring Data JPA Specifications
+#### CFC Finder Methods → Spring Data JPA Specifications
 
-| PHP Scope | Purpose | Spring Data JPA Implementation |
-|-----------|---------|-------------------------------|
-| `scopeActive($query)` | Only active users | JPA Specification or @Where annotation |
-| `scopeAdmins($query)` | Only admin users | Custom repository method or Specification |
+| CFML Finder / Query | Purpose | Spring Data JPA Implementation |
+|---------------------|---------|-------------------------------|
+| `getActiveUsers()` (`<cfquery>` WHERE active=1) | Only active users | JPA Specification or `@Query` method |
+| `getAdmins()` (`<cfquery>` WHERE role='admin') | Only admin users | Custom repository method or Specification |
 
-#### Model Events → JPA Entity Listeners
+#### CF-ORM Events → JPA Entity Listeners
 
-| PHP Event | Purpose | JPA Implementation |
-|-----------|---------|-------------------|
-| `creating` | Set defaults | `@PrePersist` callback or `@EntityListeners` |
-| `deleting` | Cascade soft delete | `@PreRemove` callback or Hibernate `@SQLDelete` |
+| CF-ORM Event | Purpose | JPA Implementation |
+|--------------|---------|-------------------|
+| `preInsert()` | Set defaults | `@PrePersist` callback or `@EntityListeners` |
+| `preDelete()` | Cascade soft delete | `@PreRemove` callback or Hibernate `@SQLDelete` |
 
 #### Validation Rules
-Document Laravel validation rules to convert:
-| PHP Rule | Java Equivalent |
-|----------|-----------------|
-| `required` | `@NotNull` / `@NotBlank` |
-| `email` | `@Email` |
-| `max:100` | `@Size(max = 100)` |
-| `unique:users,email` | Unique constraint + service validation |
+Document CFML validation to convert (`<cfparam type="...">`, `isValid()`, `<cfproperty validate>`):
+| CFML Validation | Java Equivalent |
+|-----------------|-----------------|
+| `<cfparam name="email" type="string">` / required | `@NotNull` / `@NotBlank` |
+| `isValid("email", form.email)` | `@Email` |
+| `len(name) LTE 100` | `@Size(max = 100)` |
+| Manual `<cfquery>` uniqueness check | Unique constraint + service validation |
 
 #### Migration Complexity: [Low/Medium/High]
 #### Estimated Effort: [X hours]
@@ -239,60 +240,60 @@ Document Laravel validation rules to convert:
 
 ### 3.3 Services Migration Plan
 
-For each PHP service (this is where business logic lives):
+For each ColdFusion service CFC (this is where business logic lives):
 
 ```markdown
 ### Service: [ServiceName]
 
 | Property | Value |
 |----------|-------|
-| **Source File** | `app/Services/PaymentService.php` |
+| **Source File** | `cfcs/PaymentService.cfc` |
 | **Target Interface** | `src/main/java/com/example/projectname/service/PaymentService.java` (interface) |
 | **Target Implementation** | `src/main/java/com/example/projectname/service/impl/PaymentServiceImpl.java` |
 | **Purpose** | Handle all payment processing logic |
 
 #### Dependencies
 
-| PHP Dependency | Injection Method | Java Equivalent |
-|----------------|------------------|-----------------|
-| `StripeGateway` | Constructor | `StripeClient` (from com.stripe:stripe-java) |
-| `OrderRepository` | Constructor | `OrderRepository` (Spring Data JPA) |
-| `Logger` | Facade | `Logger` (SLF4J via @Slf4j) |
-| `Config` | Facade | `@ConfigurationProperties PaymentProperties` |
+| CFML Dependency | Wiring Method | Java Equivalent |
+|-----------------|---------------|-----------------|
+| `gatewayCFC` | `createObject("component",...)` / `init()` | `StripeClient` (from com.stripe:stripe-java) |
+| `orderService` | `application` scope singleton | `OrderRepository` (Spring Data JPA) |
+| `<cflog>` / `writeLog()` | Built-in logging | `Logger` (SLF4J via @Slf4j) |
+| `application.settings` / `settings.ini.cfm` | Config struct | `@ConfigurationProperties PaymentProperties` |
 
 #### Methods Mapping
 
-| PHP Method | Signature | Java Method | Signature | Notes |
-|------------|-----------|-------------|-----------|-------|
-| `processPayment` | `(Order $order, array $card): PaymentResult` | `processPayment` | `(Order order, CardDto card): PaymentResult` | Use @Transactional |
-| `refund` | `(string $transactionId, float $amount): bool` | `refund` | `(String transactionId, BigDecimal amount): boolean` | Use BigDecimal for money |
-| `validateCard` | `(array $card): ValidationResult` | `validateCard` | `(CardDto card): ValidationResult` | |
+| CFML Function | Signature | Java Method | Signature | Notes |
+|---------------|-----------|-------------|-----------|-------|
+| `processPayment` | `(order, struct card): PaymentResult` | `processPayment` | `(Order order, CardDto card): PaymentResult` | Use @Transactional |
+| `refund` | `(transactionId, amount): boolean` | `refund` | `(String transactionId, BigDecimal amount): boolean` | Use BigDecimal for money |
+| `validateCard` | `(struct card): ValidationResult` | `validateCard` | `(CardDto card): ValidationResult` | |
 
 #### Business Logic Documentation
 
 **⚠️ CRITICAL: Document ALL business rules in this service:**
 
-| Business Rule | PHP Implementation | Line Numbers | Java Implementation Notes |
-|---------------|-------------------|--------------|--------------------------|
-| Minimum order $10 | `if ($order->total < 10) throw...` | L45-47 | Same logic, use Bean Validation |
-| Max refund 30 days | `if ($order->created_at->diffInDays(now()) > 30)` | L78-82 | Use java.time Period/Duration comparison |
-| Fraud check | `$this->fraudService->check($card)` | L55-60 | Inject FraudService |
-| Retry on failure | `retry(3, fn() => $stripe->charge(...))` | L65-70 | Use Spring Retry or Resilience4j |
+| Business Rule | CFML Implementation | Line Numbers | Java Implementation Notes |
+|---------------|---------------------|--------------|--------------------------|
+| Minimum order $10 | `<cfif order.total LT 10><cfthrow ...></cfif>` | L45-47 | Same logic, use Bean Validation |
+| Max refund 30 days | `<cfif dateDiff("d", order.created_at, now()) GT 30>` | L78-82 | Use java.time Period/Duration comparison |
+| Fraud check | `application.fraudService.check(card)` | L55-60 | Inject FraudService |
+| Retry on failure | `<cfloop>` retry up to 3 times around gateway call | L65-70 | Use Spring Retry or Resilience4j |
 
 #### Error Handling
 
-| PHP Exception | When Thrown | Java Exception |
-|---------------|-------------|--------------|
-| `PaymentFailedException` | Stripe returns error | `PaymentFailedException` (custom) |
-| `InsufficientFundsException` | Card declined | `InsufficientFundsException` (custom) |
-| `ValidationException` | Invalid card data | `ValidationException` |
+| CFML Error (`<cfthrow type="...">`) | When Thrown | Java Exception |
+|-------------------------------------|-------------|----------------|
+| `<cfthrow type="PaymentFailed">` | Gateway returns error | `PaymentFailedException` (custom) |
+| `<cfthrow type="InsufficientFunds">` | Card declined | `InsufficientFundsException` (custom) |
+| `<cfthrow type="Validation">` | Invalid card data | `ValidationException` |
 
 #### External API Calls
 
 | API | Method | Purpose | Java Implementation |
 |-----|--------|---------|---------------------|
-| Stripe | `POST /v1/charges` | Charge card | Use com.stripe:stripe-java SDK |
-| Stripe | `POST /v1/refunds` | Process refund | Use com.stripe:stripe-java SDK |
+| Stripe (`<cfhttp>`) | `POST /v1/charges` | Charge card | Use com.stripe:stripe-java SDK |
+| Stripe (`<cfhttp>`) | `POST /v1/refunds` | Process refund | Use com.stripe:stripe-java SDK |
 
 #### Migration Complexity: [Low/Medium/High]
 #### Estimated Effort: [X hours]
@@ -300,81 +301,83 @@ For each PHP service (this is where business logic lives):
 
 ### 3.4 Views Migration Plan
 
-For each PHP view/template:
+For each ColdFusion `.cfm` view / custom tag:
 
 ```markdown
 ### View: [ViewName]
 
 | Property | Value |
 |----------|-------|
-| **Source File** | `resources/views/users/index.blade.php` |
+| **Source File** | `users/index.cfm` |
 | **Target File** | `src/main/resources/templates/users/index.html` |
-| **Layout** | `app.blade.php` → `layout.html` (Thymeleaf layout) |
-| **Controller** | `UserController.Index()` |
+| **Layout** | `header.cfm` / `footer.cfm` → `layout.html` (Thymeleaf layout) |
+| **Handler** | `UserController.list()` |
 
 #### View Components Used
 
-| Blade Component | Purpose | Thymeleaf Equivalent |
-|-----------------|---------|----------------------|
-| `@include('partials.sidebar')` | Navigation | `th:insert="~{fragments/sidebar}"` |
-| `<x-alert type="success">` | Alert box | Thymeleaf fragment with parameters |
-| `@component('card')` | Card wrapper | Thymeleaf fragment |
+| CFML Include / Custom Tag | Purpose | Thymeleaf Equivalent |
+|---------------------------|---------|----------------------|
+| `<cfinclude template="sidebar.cfm">` | Navigation | `th:insert="~{fragments/sidebar}"` |
+| `<cf_alert type="success">` | Alert box | Thymeleaf fragment with parameters |
+| `<cfmodule template="card.cfm">` | Card wrapper | Thymeleaf fragment |
 
 #### Data Passed to View
 
-| Variable | PHP Type | Description | Java Model Attribute |
-|----------|----------|-------------|---------------------|
-| `$users` | Collection | List of users | `List<UserDto> users` (via Model.addAttribute) |
-| `$currentPage` | int | Pagination | `int currentPage` |
-| `$totalPages` | int | Pagination | `int totalPages` |
+| Variable | CFML Type | Description | Java Model Attribute |
+|----------|-----------|-------------|---------------------|
+| `users` | query / array | List of users | `List<UserDto> users` (via Model.addAttribute) |
+| `currentPage` | numeric | Pagination | `int currentPage` |
+| `totalPages` | numeric | Pagination | `int totalPages` |
 
-#### Blade → Thymeleaf Syntax Mapping
+#### CFML → Thymeleaf Syntax Mapping
 
-| Blade Syntax | Thymeleaf Equivalent |
-|--------------|----------------------|
-| `{{ $variable }}` | `th:text="${variable}"` |
-| `{!! $html !!}` | `th:utext="${html}"` |
-| `@if($condition)` | `th:if="${condition}"` |
-| `@foreach($items as $item)` | `th:each="item : ${items}"` |
-| `@extends('layout')` | `layout:decorate="~{layout}"` |
-| `@section('content')` | `layout:fragment="content"` |
-| `@yield('content')` | `layout:fragment="content"` |
-| `@include('partial')` | `th:insert="~{partial}"` |
-| `@csrf` | (automatic with Spring Security) |
-| `@auth` | `sec:authorize="isAuthenticated()"` (Thymeleaf Spring Security) |
+| CFML Syntax | Thymeleaf Equivalent |
+|-------------|----------------------|
+| `<cfoutput>#variable#</cfoutput>` | `th:text="${variable}"` |
+| `<cfoutput>#variable#</cfoutput>` (raw HTML) | `th:utext="${html}"` |
+| `<cfif condition>` | `th:if="${condition}"` |
+| `<cfloop array="#items#" index="item">` | `th:each="item : ${items}"` |
+| `<cfinclude template="header.cfm">` (layout) | `layout:decorate="~{layout}"` |
+| `<cfsavecontent variable="content">` | `layout:fragment="content"` |
+| Content placeholder / include point | `layout:fragment="content"` |
+| `<cfinclude template="partial.cfm">` | `th:insert="~{partial}"` |
+| `CSRFGenerateToken()` + hidden field | (automatic with Spring Security) |
+| `<cfif isUserLoggedIn()>` | `sec:authorize="isAuthenticated()"` (Thymeleaf Spring Security) |
 
 #### JavaScript/CSS Dependencies
 
 | Asset | Source | Target Location |
 |-------|--------|-----------------|
-| `app.js` | `resources/js/app.js` | `src/main/resources/static/js/app.js` |
-| `app.css` | `resources/css/app.css` | `src/main/resources/static/css/app.css` |
+| `app.js` | `assets/js/app.js` | `src/main/resources/static/js/app.js` |
+| `app.css` | `assets/css/app.css` | `src/main/resources/static/css/app.css` |
 
 #### Migration Complexity: [Low/Medium/High]
 #### Estimated Effort: [X hours]
 ```
 
-### 3.5 Middleware Migration Plan
+### 3.5 Request Lifecycle / Filters Migration Plan
+
+CFML cross-cutting concerns typically live in `Application.cfc` lifecycle methods (or `Application.cfm` for legacy apps), custom tags, and interceptors.
 
 ```markdown
-### Middleware: [MiddlewareName]
+### Filter / Lifecycle Hook: [Name]
 
 | Property | Value |
 |----------|-------|
-| **Source File** | `app/Http/Middleware/CheckAge.php` |
+| **Source** | `Application.cfc` → `onRequestStart()` (age check) |
 | **Target File** | `src/main/java/com/example/projectname/config/CheckAgeInterceptor.java` |
-| **Applied To** | Routes with `age.check` middleware |
+| **Applied To** | Protected routes requiring age verification |
 
-#### PHP Implementation Analysis
+#### CFML Implementation Analysis
 
-```php
-public function handle($request, Closure $next, $minAge = 18)
-{
-    if ($request->user()->age < $minAge) {
-        abort(403, 'Age requirement not met');
-    }
-    return $next($request);
-}
+```cfml
+<cffunction name="onRequestStart" returntype="boolean">
+    <cfargument name="targetPage" type="string" required="true">
+    <cfif structKeyExists(session, "user") AND session.user.age LT 18>
+        <cfthrow type="Forbidden" message="Age requirement not met">
+    </cfif>
+    <cfreturn true>
+</cffunction>
 ```
 
 #### Java Implementation Plan
@@ -391,7 +394,7 @@ public class CheckAgeInterceptor implements HandlerInterceptor {
 ```
 
 #### Registration
-- PHP: `Kernel.php` in `$routeMiddleware`
+- CFML: `Application.cfc` `onRequestStart()` / a custom tag included in request templates
 - Java: `WebConfig.java` with `registry.addInterceptor()` or `FilterRegistrationBean`
 
 #### Migration Complexity: [Low/Medium/High]
@@ -405,18 +408,18 @@ public class CheckAgeInterceptor implements HandlerInterceptor {
 
 | Property | Value |
 |----------|-------|
-| **Source File** | `app/Jobs/SendWelcomeEmail.php` |
+| **Source File** | `tasks/sendWelcomeEmail.cfm` (via `<cfschedule>` or `<cfthread>`) |
 | **Target File** | `src/main/java/com/example/projectname/job/SendWelcomeEmailJob.java` |
-| **Trigger** | Queue dispatch after user registration |
+| **Trigger** | `<cfthread>` / scheduled task after user registration |
 
-#### PHP Implementation
+#### CFML Implementation
 
 | Property | Value |
 |----------|-------|
-| Queue | `emails` |
-| Delay | None |
-| Retries | 3 |
-| Timeout | 60 seconds |
+| Trigger | `<cfschedule>` / CF Administrator scheduled task / `<cfthread>` |
+| Interval | On-demand |
+| Retries | Manual (`<cftry>` + loop) |
+| Timeout | `<cfsetting requesttimeout>` |
 
 #### Java Implementation Plan
 
@@ -507,12 +510,12 @@ Create `reports/Migration-Plan-Detailed.md`:
 
 **Application**: [Name]
 **Generated**: [Date/Time]
-**Source**: PHP [Version] / [Framework]
+**Source**: ColdFusion [Engine/Version] / [Framework]
 **Target**: Java 21 / Spring Boot 3.x
 
 ## Executive Summary
 
-- **Total PHP Files**: [X]
+- **Total ColdFusion Files**: [X]
 - **Files with Business Logic**: [X]
 - **Estimated Total Effort**: [X hours]
 - **Migration Waves**: 6
@@ -523,11 +526,11 @@ Create `reports/Migration-Plan-Detailed.md`:
 
 ## Migration Plan by Component
 
-### Controllers ([X] files)
-[All controller migration plans]
+### Handlers / Pages ([X] files)
+[All handler/page migration plans]
 
-### Models/Entities ([X] files)
-[All model migration plans]
+### Components/Entities ([X] files)
+[All component/model migration plans]
 
 ### Services ([X] files)
 [All service migration plans]
@@ -535,8 +538,8 @@ Create `reports/Migration-Plan-Detailed.md`:
 ### Views ([X] files)
 [All view migration plans]
 
-### Middleware ([X] files)
-[All middleware migration plans]
+### Filters / Lifecycle ([X] files)
+[All filter/lifecycle migration plans]
 
 ### Background Jobs ([X] files)
 [All job migration plans]
@@ -547,21 +550,21 @@ Create `reports/Migration-Plan-Detailed.md`:
 
 ## Business Logic Preservation Checklist
 
-| Business Rule | Source File | Source Method | Target File | Target Method | Status |
-|---------------|-------------|---------------|-------------|---------------|--------|
-| [Rule 1] | [file.php] | [method] | [File.cs] | [Method] | ⏳ |
+| Business Rule | Source File | Source Function | Target File | Target Method | Status |
+|---------------|-------------|-----------------|-------------|---------------|--------|
+| [Rule 1] | [file.cfc] | [function] | [File.java] | [Method] | ⏳ |
 
 ## Dependency Migration
 
-| Composer Package | Maven/Gradle Dependency | Notes |
-|------------------|-------------------------|-------|
-| [package] | [package] | [notes] |
+| CFML Tag / Java Interop / Module | Maven/Gradle Dependency | Notes |
+|----------------------------------|-------------------------|-------|
+| [tag/module] | [package] | [notes] |
 
 ## Configuration Migration
 
-| PHP Config | Java Config | Notes |
-|------------|-------------|-------|
-| `.env` key | `application.yml` property | |
+| CFML Config | Java Config | Notes |
+|-------------|-------------|-------|
+| `Application.cfc` / `settings.ini.cfm` setting | `application.yml` property | |
 
 ## Next Steps
 
@@ -598,13 +601,14 @@ Run `/phase3-migratecode` to execute the migration following this plan.
 ### Documentation Depth
 - Document EVERY file with business logic
 - Include exact line numbers for business rules
-- Map every PHP pattern to its Java equivalent
+- Map every CFML pattern to its Java equivalent
 - Define clear migration order based on dependencies
+- Watch for logic/SQL/presentation mixed in the same `.cfm` page
 
 ### Business Logic Priority
 - **CRITICAL**: Capture ALL business rules
-- Document WHERE logic lives (file, method, line)
-- Identify logic in wrong places (controllers instead of services)
+- Document WHERE logic lives (file, function, line)
+- Identify logic in wrong places (`.cfm` pages instead of services)
 - Plan for refactoring if needed
 
 ### File Reading
@@ -624,8 +628,8 @@ Run `/phase3-migratecode` to execute the migration following this plan.
 At the end of Phase 2, you should have:
 
 1. ✅ `reports/Migration-Plan-Detailed.md` - Complete file-by-file plan
-2. ✅ Every controller mapped with actions
-3. ✅ Every model mapped with properties and relationships
+2. ✅ Every handler/page mapped with actions
+3. ✅ Every component mapped with properties and relationships
 4. ✅ Every service mapped with methods and business logic
 5. ✅ Every view mapped with Thymeleaf equivalents
 6. ✅ Migration order defined by waves

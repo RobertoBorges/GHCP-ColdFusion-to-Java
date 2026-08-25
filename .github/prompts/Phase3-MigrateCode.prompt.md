@@ -1,14 +1,14 @@
 ---
 agent: agent
-model: Claude Sonnet 4.5 (copilot)
-tools: ['search/codebase', 'search/usages', 'vscode/vscodeAPI', 'read/problems', 'search/changes', 'execute/testFailure', 'vscode/runCommand', 'read/terminalLastCommand', 'vscode/openSimpleBrowser', 'web/fetch', 'search/searchResults', 'web/githubRepo', 'vscode/extensions', 'execute/runTests', 'edit/editFiles', 'search', 'azure-mcp/*']
+model: Claude Sonnet 5 (copilot)
+tools: [vscode, execute, read, browser, edit, search, web, azure/search]
 ---
 
-# Phase 3: Execute PHP to Java Code Migration
+# Phase 3: Execute ColdFusion to Java Code Migration
 
 ## Objective
 
-Execute the migration from PHP to Java 21 / Spring Boot 3.x following the detailed file-by-file plan created in Phase 2. This phase creates the actual Java project and migrates all code.
+Execute the migration from ColdFusion to Java 21 / Spring Boot 3.x following the detailed file-by-file plan created in Phase 2. This phase creates the actual Java project and migrates all code.
 
 **Prerequisites**:
 - Phase 0: `Application-Discovery-Report.md` completed
@@ -145,7 +145,7 @@ Based on the package mapping from Phase 2, add to `pom.xml`:
         <optional>true</optional>
     </dependency>
 
-    <!-- Add dependencies mapped from Composer packages -->
+    <!-- Add dependencies mapped from CFML tags / Java interop / modules -->
     <!-- [Add based on Phase 2 package mapping] -->
 </dependencies>
 ```
@@ -168,7 +168,7 @@ Use `get_errors` to check for any issues.
 
 #### 1.1 Configure application.yml
 
-Migrate from PHP `.env` and `config/*.php`:
+Migrate from CFML config (`Application.cfc`, `settings.ini.cfm`, CF Administrator datasources):
 
 ```yaml
 spring:
@@ -188,7 +188,7 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
-# Application settings (migrate from PHP config)
+# Application settings (migrate from CFML config)
 app:
   name: ${APP_NAME:MyApp}
 
@@ -277,17 +277,17 @@ public class WebConfig implements WebMvcConfigurer {
 
 #### 2.1 Create JPA Entity Classes
 
-For each PHP model documented in Phase 2:
+For each ColdFusion component / CF-ORM entity documented in Phase 2:
 
-**Read the PHP model:**
+**Read the CFML component:**
 ```
-read_file: [PHP source path from Migration Plan]
+read_file: [CFML source path from Migration Plan]
 ```
 
 **Create the Java entity following the mapping:**
 
 ```java
-// Example: User entity migrated from app/Models/User.php
+// Example: User entity migrated from cfcs/User.cfc
 package com.projectname.model;
 
 import jakarta.persistence.*;
@@ -324,7 +324,7 @@ public class User {
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;  // Soft delete
 
-    // Relationships (from Eloquent relationships)
+    // Relationships (from CF-ORM fieldtype relationships)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id")
     private Role role;
@@ -332,7 +332,7 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Order> orders = new ArrayList<>();
 
-    // JPA lifecycle callbacks (replaces Eloquent events)
+    // JPA lifecycle callbacks (replaces CF-ORM events)
     @PrePersist
     protected void onCreate() {
         createdAt = OffsetDateTime.now();
@@ -384,7 +384,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
-    // Soft delete: find only non-deleted users (replaces Eloquent SoftDeletes)
+    // Soft delete: find only non-deleted users (replaces CF-ORM / query soft-delete flag)
     @Query("SELECT u FROM User u WHERE u.deletedAt IS NULL")
     List<User> findAllActive();
 
@@ -474,7 +474,7 @@ public interface UserService {
     UserDto update(Long id, UpdateUserDto dto);
     void delete(Long id);
 
-    // Business logic methods from PHP service
+    // Business logic methods from CFML service CFC
     boolean validateEmail(String email);
     void assignDefaultRole(Long userId);
 }
@@ -482,11 +482,11 @@ public interface UserService {
 
 #### 3.2 Implement Services
 
-For each PHP service in the Migration Plan:
+For each ColdFusion service CFC in the Migration Plan:
 
-1. **Read the PHP service:**
+1. **Read the CFML service CFC:**
 ```
-read_file: [PHP service path - read 2000 lines at a time]
+read_file: [CFML service CFC path - read 2000 lines at a time]
 ```
 
 2. **Migrate each method following the plan:**
@@ -521,7 +521,7 @@ public class UserServiceImpl implements UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    // Migrated from PHP: UserService::getAll()
+    // Migrated from CFML: UserService.getAll()
     @Override
     @Transactional(readOnly = true)
     public List<UserDto> getAll() {
@@ -536,11 +536,11 @@ public class UserServiceImpl implements UserService {
             .toList();
     }
 
-    // Migrated from PHP: UserService::create($data)
+    // Migrated from CFML: UserService.create(data)
     // Business logic preserved from lines XX-YY
     @Override
     public UserDto create(CreateUserDto dto) {
-        // Business rule: Validate email uniqueness (from PHP line XX)
+        // Business rule: Validate email uniqueness (from CFML line XX)
         if (!validateEmail(dto.email())) {
             throw new IllegalArgumentException("Email already exists");
         }
@@ -550,7 +550,7 @@ public class UserServiceImpl implements UserService {
         user.setPasswordHash(passwordEncoder.encode(dto.password()));
         user.setName(dto.name());
 
-        // Business rule: Assign default role if not specified (from PHP line XX)
+        // Business rule: Assign default role if not specified (from CFML line XX)
         if (dto.roleId() == null || dto.roleId() == 0) {
             assignDefaultRole(user.getId());
         }
@@ -568,7 +568,7 @@ public class UserServiceImpl implements UserService {
 #### 3.3 Register Services
 
 In Spring Boot, services are auto-discovered via `@Service` annotation and classpath scanning.
-No manual registration needed (unlike `Program.cs` in .NET). Ensure all service classes
+No manual registration needed (unlike CFC instantiation in `Application.cfc` `onApplicationStart`). Ensure all service classes
 are in packages scanned by `@SpringBootApplication`.
 
 For custom beans, create a `@Configuration` class:
@@ -602,12 +602,12 @@ mvn compile
 
 ### Wave 4: Controllers
 
-For each PHP controller in the Migration Plan:
+For each ColdFusion request handler / `.cfm` controller page in the Migration Plan:
 
-#### 4.1 Read PHP Controller
+#### 4.1 Read CFML Handler / Page
 
 ```
-read_file: [PHP controller path from Migration Plan]
+read_file: [CFML handler/page path from Migration Plan]
 ```
 
 #### 4.2 Create Spring Controller
@@ -738,11 +738,11 @@ mvn compile
 
 #### 5.1 Create Layout
 
-Migrate from `resources/views/layouts/app.blade.php`:
+Migrate from the CFML layout (`header.cfm` / `footer.cfm`, or `<cfsavecontent>`-based layout):
 
-**Read PHP layout:**
+**Read CFML layout:**
 ```
-read_file: resources/views/layouts/app.blade.php
+read_file: [CFML layout / header.cfm path]
 ```
 
 **Create `src/main/resources/templates/layout/default.html`:**
@@ -760,7 +760,7 @@ read_file: resources/views/layouts/app.blade.php
 </head>
 <body>
     <header>
-        <!-- Migrate navigation from Blade -->
+        <!-- Migrate navigation from the CFML header / custom tag -->
         <div th:insert="~{fragments/navigation :: nav}"></div>
     </header>
 
@@ -780,24 +780,24 @@ read_file: resources/views/layouts/app.blade.php
 
 #### 5.2 Migrate Views
 
-For each Blade view in the Migration Plan:
+For each ColdFusion `.cfm` view in the Migration Plan:
 
-**Read PHP view:**
+**Read CFML view:**
 ```
-read_file: [Blade template path]
+read_file: [.cfm template path]
 ```
 
-**Apply Blade → Thymeleaf conversion:**
+**Apply CFML → Thymeleaf conversion:**
 
-| Blade | Thymeleaf |
-|-------|-----------|
-| `{{ $var }}` | `th:text="${var}"` |
-| `{!! $html !!}` | `th:utext="${html}"` |
-| `@if($cond)` | `th:if="${cond}"` |
-| `@foreach($items as $item)` | `th:each="item : ${items}"` |
-| `@extends('layout')` | `layout:decorate="~{layout/default}"` |
-| `@section('content')` | `layout:fragment="content"` |
-| `@include('partial')` | `th:insert="~{fragments/partial}"` |
+| CFML | Thymeleaf |
+|------|-----------|
+| `<cfoutput>#var#</cfoutput>` | `th:text="${var}"` |
+| `<cfoutput>#html#</cfoutput>` (raw) | `th:utext="${html}"` |
+| `<cfif cond>` | `th:if="${cond}"` |
+| `<cfloop array="#items#" index="item">` | `th:each="item : ${items}"` |
+| `<cfinclude template="header.cfm">` (layout) | `layout:decorate="~{layout/default}"` |
+| `<cfsavecontent variable="content">` | `layout:fragment="content"` |
+| `<cfinclude template="partial.cfm">` | `th:insert="~{fragments/partial}"` |
 | `@csrf` | Automatic with Spring Security + Thymeleaf |
 | `@auth` | `sec:authorize="isAuthenticated()"` |
 | `{{ route('name') }}` | `th:href="@{/controller/action}"` |
@@ -824,7 +824,7 @@ cp -r public/images/* src/main/resources/static/images/
 
 #### 6.1 Filters and Interceptors
 
-For each PHP middleware in the Migration Plan:
+For each ColdFusion lifecycle hook / custom tag (from `Application.cfc` `onRequestStart`, interceptors, or filter-style custom tags) in the Migration Plan:
 
 ```java
 package com.projectname.filter;
@@ -860,7 +860,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
 #### 6.2 Scheduled Tasks and Background Services
 
-For each PHP job in the Migration Plan:
+For each ColdFusion scheduled task / `<cfthread>` job in the Migration Plan:
 
 ```java
 package com.projectname.scheduler;
@@ -987,7 +987,7 @@ Run `/phase4-generateinfra` to create Azure infrastructure.
 ### Code Reading
 - Read **2000 lines at a time** for sufficient context
 - Use `semantic_search` for cross-file pattern discovery
-- Always read PHP source before writing Java equivalent
+- Always read CFML source before writing Java equivalent
 
 ### Build Frequently
 - Build after each wave
@@ -995,9 +995,9 @@ Run `/phase4-generateinfra` to create Azure infrastructure.
 - Fix errors before proceeding
 
 ### Business Logic Priority
-- **CRITICAL**: Preserve ALL business logic from PHP
+- **CRITICAL**: Preserve ALL business logic from ColdFusion
 - Reference exact locations from Phase 2 plan
-- Add comments noting which PHP method/line was migrated
+- Add comments noting which CFML function/line was migrated
 
 ### Do NOT
 - Do NOT skip steps in the wave order
@@ -1014,7 +1014,7 @@ At the end of Phase 3:
 2. ✅ All JPA entities migrated with relationships
 3. ✅ All services migrated with business logic
 4. ✅ All controllers migrated with actions
-5. ✅ All views migrated from Blade/Twig to Thymeleaf
+5. ✅ All views migrated from `.cfm` / custom tags to Thymeleaf
 6. ✅ Filters, interceptors, and scheduled tasks
 7. ✅ Static assets copied
 8. ✅ Application builds successfully

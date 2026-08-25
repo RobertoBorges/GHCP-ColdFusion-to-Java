@@ -1,82 +1,73 @@
 // =============================================================================
-// PHP to Java Controller Conversion Example
-// Part of the PHP-to-Java Migration Framework
+// ColdFusion (CFML) to Java Controller Conversion Example
+// Part of the ColdFusion-to-Java Migration Framework
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// BEFORE: PHP Laravel Controller (app/Http/Controllers/ProductController.php)
+// BEFORE: ColdFusion controller page (product.cfm) backed by a service CFC
+// A classic legacy CFML pattern: a .cfm page dispatches on a URL "action"
+// and delegates to an application-scope singleton CFC (application.productService).
 // -----------------------------------------------------------------------------
 /*
-<?php
+<!--- product.cfm --->
+<cfparam name="url.action" default="index">
+<cfparam name="url.id" default="0">
 
-namespace App\Http\Controllers;
+<cfswitch expression="#url.action#">
 
-use App\Models\Product;
-use App\Services\ProductService;
-use Illuminate\Http\Request;
+    <!--- index: list all products --->
+    <cfcase value="index">
+        <cfset products = application.productService.getAllProducts()>
+        <cfinclude template="views/products/index.cfm">
+    </cfcase>
 
-class ProductController extends Controller
-{
-    protected $productService;
+    <!--- show: single product --->
+    <cfcase value="show">
+        <cfset product = application.productService.getProductById(url.id)>
+        <cfif not isStruct(product) or structIsEmpty(product)>
+            <cfheader statuscode="404" statustext="Not Found">
+            <cfinclude template="views/errors/404.cfm">
+            <cfabort>
+        </cfif>
+        <cfinclude template="views/products/show.cfm">
+    </cfcase>
 
-    public function __construct(ProductService $productService)
-    {
-        $this->productService = $productService;
-    }
+    <!--- store: create from a submitted form --->
+    <cfcase value="store">
+        <cfset errors = []>
+        <!--- Manual validation (typeless CFML) --->
+        <cfif not len(trim(form.name)) or len(form.name) gt 255>
+            <cfset arrayAppend(errors, "Name is required and must be <= 255 chars")>
+        </cfif>
+        <cfif not isNumeric(form.price) or form.price lt 0>
+            <cfset arrayAppend(errors, "Price must be numeric and >= 0")>
+        </cfif>
 
-    public function index()
-    {
-        $products = $this->productService->getAllProducts();
-        return view('products.index', compact('products'));
-    }
+        <cfif arrayLen(errors)>
+            <cfset request.errors = errors>
+            <cfinclude template="views/products/create.cfm">
+        <cfelse>
+            <cfset product = application.productService.createProduct(form)>
+            <cfset session.flash.success = "Product created successfully.">
+            <cflocation url="product.cfm?action=show&id=#product.id#" addtoken="false">
+        </cfif>
+    </cfcase>
 
-    public function show($id)
-    {
-        $product = $this->productService->getProductById($id);
+    <!--- update: modify an existing product --->
+    <cfcase value="update">
+        <cfset application.productService.updateProduct(url.id, form)>
+        <cfset session.flash.success = "Product updated successfully.">
+        <cflocation url="product.cfm?action=show&id=#url.id#" addtoken="false">
+    </cfcase>
 
-        if (!$product) {
-            abort(404);
-        }
+    <!--- destroy: delete a product --->
+    <cfcase value="destroy">
+        <cfset application.productService.deleteProduct(url.id)>
+        <cfset session.flash.success = "Product deleted successfully.">
+        <cflocation url="product.cfm?action=index" addtoken="false">
+    </cfcase>
 
-        return view('products.show', compact('product'));
-    }
-
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'name' => 'required|max:255',
-            'price' => 'required|numeric|min:0',
-            'description' => 'nullable|string',
-        ]);
-
-        $product = $this->productService->createProduct($validated);
-
-        return redirect()->route('products.show', $product->id)
-            ->with('success', 'Product created successfully.');
-    }
-
-    public function update(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'name' => 'required|max:255',
-            'price' => 'required|numeric|min:0',
-            'description' => 'nullable|string',
-        ]);
-
-        $product = $this->productService->updateProduct($id, $validated);
-
-        return redirect()->route('products.show', $id)
-            ->with('success', 'Product updated successfully.');
-    }
-
-    public function destroy($id)
-    {
-        $this->productService->deleteProduct($id);
-
-        return redirect()->route('products.index')
-            ->with('success', 'Product deleted successfully.');
-    }
-}
+</cfswitch>
 */
 
 // -----------------------------------------------------------------------------
@@ -106,12 +97,12 @@ public class ProductController {
 
     private final ProductService productService;
 
-    // Constructor injection (same pattern as Laravel)
+    // Constructor injection replaces createObject("component",...) / application-scope wiring
     public ProductController(ProductService productService) {
         this.productService = productService;
     }
 
-    // GET /products — replaces: public function index()
+    // GET /products — replaces: <cfcase value="index">
     @GetMapping
     public String index(Model model) {
         var products = productService.getAllProducts();
@@ -119,7 +110,7 @@ public class ProductController {
         return "products/index"; // Thymeleaf template: templates/products/index.html
     }
 
-    // GET /products/{id} — replaces: public function show($id)
+    // GET /products/{id} — replaces: <cfcase value="show">
     @GetMapping("/{id}")
     public String show(@PathVariable Long id, Model model) {
         var product = productService.getProductById(id);
@@ -134,26 +125,26 @@ public class ProductController {
         return "products/create";
     }
 
-    // POST /products — replaces: public function store(Request $request)
+    // POST /products — replaces: <cfcase value="store">
     @PostMapping
     public String store(
             @Valid @ModelAttribute("product") CreateProductRequest request,
             BindingResult bindingResult,
             RedirectAttributes redirectAttributes) {
 
-        // BindingResult replaces $request->validate() — validation errors go here
+        // BindingResult replaces the manual <cfif>/isNumeric()/len() validation block
         if (bindingResult.hasErrors()) {
             return "products/create";
         }
 
         var product = productService.createProduct(request);
 
-        // RedirectAttributes replaces ->with('success', 'message')
+        // RedirectAttributes replaces session.flash.success + <cflocation>
         redirectAttributes.addFlashAttribute("success", "Product created successfully.");
         return "redirect:/products/" + product.getId();
     }
 
-    // POST /products/{id} — replaces: public function update(Request $request, $id)
+    // POST /products/{id} — replaces: <cfcase value="update">
     // Note: HTML forms only support GET/POST; use hidden _method for PUT in Thymeleaf
     @PostMapping("/{id}")
     public String update(
@@ -172,7 +163,7 @@ public class ProductController {
         return "redirect:/products/" + id;
     }
 
-    // POST /products/{id}/delete — replaces: public function destroy($id)
+    // POST /products/{id}/delete — replaces: <cfcase value="destroy">
     @PostMapping("/{id}/delete")
     public String destroy(@PathVariable Long id, RedirectAttributes redirectAttributes) {
         productService.deleteProduct(id);
@@ -184,7 +175,7 @@ public class ProductController {
 
 // -----------------------------------------------------------------------------
 // DTO for Create (dto/CreateProductRequest.java)
-// Uses Jakarta Bean Validation annotations (replaces Laravel validation rules)
+// Uses Jakarta Bean Validation annotations (replaces manual <cfif>/isValid() checks)
 // -----------------------------------------------------------------------------
 
 /*
@@ -195,17 +186,17 @@ import java.math.BigDecimal;
 
 public record CreateProductRequest(
 
-    // 'required|max:255' → @NotBlank + @Size
+    // len(trim(name)) and len <= 255 → @NotBlank + @Size
     @NotBlank(message = "Name is required")
     @Size(max = 255, message = "Name must not exceed 255 characters")
     String name,
 
-    // 'required|numeric|min:0' → @NotNull + @DecimalMin
+    // isNumeric(price) and price >= 0 → @NotNull + @DecimalMin
     @NotNull(message = "Price is required")
     @DecimalMin(value = "0.00", message = "Price must be at least 0")
     BigDecimal price,
 
-    // 'nullable|string' → no validation annotations needed (nullable by default)
+    // optional field → no validation annotations needed (nullable by default)
     String description
 
 ) {}
@@ -239,15 +230,15 @@ public record UpdateProductRequest(
 // -----------------------------------------------------------------------------
 // KEY CONVERSION PATTERNS:
 // -----------------------------------------------------------------------------
-// 1.  Constructor injection is identical in concept; Spring uses @Controller + constructor
-// 2.  Add SLF4J Logger (replaces Log facade): LoggerFactory.getLogger(...)
-// 3.  $request->validate([...]) → @Valid on DTO + Jakarta Bean Validation annotations
-// 4.  abort(404) → throw ResponseStatusException or handled by service layer
-// 5.  view('products.index', compact('products')) → Model.addAttribute() + return template path
-// 6.  redirect()->route('name') → return "redirect:/path"
-// 7.  ->with('success', 'msg') → RedirectAttributes.addFlashAttribute("success", "msg")
-// 8.  @csrf in Blade → automatic when using th:action in Thymeleaf + Spring Security
-// 9.  Route model binding ($product) → @PathVariable Long id + service lookup
-// 10. PHP arrays for validation → Java records with annotation-based validation
-// 11. One controller class per file (Java convention)
-// 12. Use @RequestMapping at class level for common path prefix
+// 1.  application-scope singleton CFC → Spring @Service bean + constructor injection
+// 2.  Add SLF4J Logger (replaces <cflog> / writeLog()): LoggerFactory.getLogger(...)
+// 3.  Manual <cfif>/isValid()/isNumeric() checks → @Valid on DTO + Jakarta Bean Validation
+// 4.  <cfheader statuscode="404"> + <cfabort> → throw ResponseStatusException / service layer
+// 5.  <cfinclude template="views/products/index.cfm"> → Model.addAttribute() + return template path
+// 6.  <cflocation url="..."> → return "redirect:/path"
+// 7.  session.flash.success → RedirectAttributes.addFlashAttribute("success", "msg")
+// 8.  Hidden CSRF token / <cftoken> → automatic when using th:action + Spring Security
+// 9.  url.id / <cfparam> + service lookup → @PathVariable Long id + service lookup
+// 10. Typeless form/url scope values → typed Java records with annotation-based validation
+// 11. One controller class per file (Java convention) — split the <cfswitch> into methods
+// 12. Use @RequestMapping at class level for the common path prefix

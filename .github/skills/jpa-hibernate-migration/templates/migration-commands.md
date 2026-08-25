@@ -1,27 +1,31 @@
 # Database Migration Commands Reference
 
-> Part of the PHP-to-Java Migration Framework
+> Part of the ColdFusion-to-Java Migration Framework
 
-This document provides the equivalent Flyway and Liquibase commands for Laravel Artisan migration commands.
+ColdFusion applications rarely ship with a single standard schema-migration tool. In practice, CFML
+teams manage the database with **hand-written `.sql` scripts** (checked into source control), **DataMgr's
+auto-create/alter** features, CF Administrator datasource changes, or the **cfmigrations** CommandBox
+module (`migrate up/down`). This document maps those practices to **Flyway** and **Liquibase**, the two
+standard migration tools for Spring Boot. MySQL is used for the examples.
 
 ## Migration Tool Comparison
 
-| Feature | Laravel (Artisan) | Flyway | Liquibase |
-|---------|-------------------|--------|-----------|
-| File format | PHP classes | SQL files | XML/YAML/SQL |
-| Naming | `YYYY_MM_DD_HHMMSS_description.php` | `V1__description.sql` | `changelog-*.xml` |
-| Version tracking | `migrations` table | `flyway_schema_history` | `databasechangelog` |
-| Rollback support | Built-in `down()` | Paid (Teams edition) | Built-in |
+| Feature | ColdFusion (cfmigrations / manual) | Flyway | Liquibase |
+|---------|------------------------------------|--------|-----------|
+| File format | `.cfc` migrations or raw `.sql` scripts | SQL files | XML/YAML/SQL |
+| Naming | `YYYYMMDDHHMMSS_description.cfc` / ad-hoc `.sql` | `V1__description.sql` | `changelog-*.xml` |
+| Version tracking | `cfmigrations` table (or none, if manual) | `flyway_schema_history` | `databasechangelog` |
+| Rollback support | `down()` in cfmigrations (or manual reverse script) | Paid (Teams edition) | Built-in |
 | Spring Boot integration | N/A | Auto-configured | Auto-configured |
 
 ## Flyway (Recommended for Spring Boot)
 
 ### Creating Migrations
 
-| Laravel | Flyway |
-|---------|--------|
-| `php artisan make:migration create_products_table` | Create file: `V1__create_products_table.sql` |
-| `php artisan make:migration add_status_to_products` | Create file: `V2__add_status_to_products.sql` |
+| ColdFusion | Flyway |
+|------------|--------|
+| cfmigrations: `migrate create create_products_table` (or hand-write a `.sql` script) | Create file: `V1__create_products_table.sql` |
+| cfmigrations: `migrate create add_status_to_products` | Create file: `V2__add_status_to_products.sql` |
 
 ```
 Flyway migration file location:
@@ -42,7 +46,7 @@ Sample migration file (`V1__create_products_table.sql`):
 
 ```sql
 -- V1__create_products_table.sql
--- Equivalent to: php artisan make:migration create_products_table
+-- Equivalent to: a hand-written CREATE TABLE script or DataMgr auto-create for the products table
 
 CREATE TABLE products (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -73,10 +77,10 @@ CREATE TABLE products (
 
 ### Running Migrations
 
-| Laravel | Flyway (Maven) | Flyway (Gradle) |
-|---------|----------------|-----------------|
-| `php artisan migrate` | `mvn flyway:migrate` | `gradle flywayMigrate` |
-| `php artisan migrate --seed` | `mvn flyway:migrate` + run seeder | `gradle flywayMigrate` + run seeder |
+| ColdFusion | Flyway (Maven) | Flyway (Gradle) |
+|------------|----------------|-----------------|
+| cfmigrations: `migrate up` (or run `.sql` by hand) | `mvn flyway:migrate` | `gradle flywayMigrate` |
+| cfmigrations: `migrate up` + seed data script | `mvn flyway:migrate` + run seeder | `gradle flywayMigrate` + run seeder |
 
 ```bash
 # Apply all pending migrations (Maven)
@@ -93,16 +97,16 @@ gradle flywayMigrate
 
 ### Rolling Back Migrations
 
-| Laravel | Flyway |
-|---------|--------|
-| `php artisan migrate:rollback` | `mvn flyway:undo` (Teams edition only) |
-| `php artisan migrate:rollback --step=3` | Create reverse migration manually |
-| `php artisan migrate:reset` | `mvn flyway:clean` (drops everything!) |
-| `php artisan migrate:fresh` | `mvn flyway:clean` + `mvn flyway:migrate` |
+| ColdFusion | Flyway |
+|------------|--------|
+| cfmigrations: `migrate down` | `mvn flyway:undo` (Teams edition only) |
+| cfmigrations: `migrate down` (repeat) | Create reverse migration manually |
+| cfmigrations: `migrate fresh` (drop + re-run) | `mvn flyway:clean` (drops everything!) |
+| cfmigrations: `migrate fresh` | `mvn flyway:clean` + `mvn flyway:migrate` |
 
 ```bash
 # Flyway clean — DROPS ALL OBJECTS (development only!)
-# Equivalent to: php artisan migrate:fresh (without re-migrating)
+# Equivalent to: cfmigrations "migrate fresh" (without re-migrating)
 mvn flyway:clean
 
 # Then re-migrate
@@ -115,9 +119,9 @@ mvn flyway:migrate
 
 ### Checking Migration Status
 
-| Laravel | Flyway |
-|---------|--------|
-| `php artisan migrate:status` | `mvn flyway:info` |
+| ColdFusion | Flyway |
+|------------|--------|
+| cfmigrations: `migrate status` | `mvn flyway:info` |
 
 ```bash
 # Show migration status
@@ -150,9 +154,9 @@ spring:
 
 ### Creating Migrations
 
-| Laravel | Liquibase |
-|---------|-----------|
-| `php artisan make:migration create_products_table` | Create changelog file |
+| ColdFusion | Liquibase |
+|------------|-----------|
+| cfmigrations: `migrate create create_products_table` (or hand-written `.sql`) | Create changelog file |
 
 ```
 Liquibase file location:
@@ -233,13 +237,13 @@ CREATE TABLE products (
 
 ### Running Liquibase Commands
 
-| Laravel | Liquibase (Maven) |
-|---------|-------------------|
-| `php artisan migrate` | `mvn liquibase:update` |
-| `php artisan migrate:rollback` | `mvn liquibase:rollback -Dliquibase.rollbackCount=1` |
-| `php artisan migrate:status` | `mvn liquibase:status` |
-| `php artisan migrate:reset` | `mvn liquibase:dropAll` |
-| `php artisan migrate --pretend` | `mvn liquibase:updateSQL` |
+| ColdFusion | Liquibase (Maven) |
+|------------|-------------------|
+| cfmigrations: `migrate up` | `mvn liquibase:update` |
+| cfmigrations: `migrate down` | `mvn liquibase:rollback -Dliquibase.rollbackCount=1` |
+| cfmigrations: `migrate status` | `mvn liquibase:status` |
+| cfmigrations: `migrate fresh` | `mvn liquibase:dropAll` |
+| Preview SQL (manual review) | `mvn liquibase:updateSQL` |
 
 ```bash
 # Apply pending changes
@@ -272,11 +276,11 @@ spring:
 
 ## Seeding Data
 
-| Laravel | Spring Boot |
-|---------|-------------|
-| `php artisan db:seed` | `CommandLineRunner` or `ApplicationRunner` bean |
-| `php artisan db:seed --class=ProductSeeder` | Run specific seeder class |
-| `php artisan migrate:fresh --seed` | Flyway clean + migrate + seed |
+| ColdFusion | Spring Boot |
+|------------|-------------|
+| Seed `.sql` script / DataMgr insert routine / `onApplicationStart` bootstrap | `CommandLineRunner` or `ApplicationRunner` bean |
+| A dedicated seed CFC run once | Run specific seeder class |
+| Drop/recreate + reseed (dev) | Flyway clean + migrate + seed |
 
 ```java
 // Option 1: CommandLineRunner in a @Configuration class
@@ -309,7 +313,7 @@ public class DataSeeder {
 ### Adding a Column
 
 ```sql
--- Laravel: php artisan make:migration add_status_to_products_table
+-- ColdFusion: hand-written ALTER script or cfmigrations "migrate create add_status_to_products"
 -- Flyway: V2__add_status_to_products.sql
 
 ALTER TABLE products ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'DRAFT';
@@ -336,7 +340,7 @@ ALTER TABLE products ADD CONSTRAINT fk_product_brand
 
 ```sql
 -- Flyway: V5__create_product_tag_table.sql
--- Equivalent to: belongsToMany in Eloquent
+-- Equivalent to: a CF-ORM fieldtype="many-to-many" linktable / a DataMgr link table
 
 CREATE TABLE product_tag (
     product_id BIGINT NOT NULL,

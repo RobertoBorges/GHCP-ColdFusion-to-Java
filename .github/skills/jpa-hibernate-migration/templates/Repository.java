@@ -1,9 +1,9 @@
 // =============================================================================
 // Spring Data JPA Repository Template
-// Part of the PHP-to-Java Migration Framework
+// Part of the ColdFusion-to-Java Migration Framework
 // =============================================================================
 // This template shows how to create a Spring Data JPA repository.
-// Replaces Eloquent query methods, scopes, and repository patterns.
+// Replaces CFC finder methods, DataMgr queries, and hand-written <cfquery> DAOs.
 // =============================================================================
 
 package com.example.app.repository;
@@ -27,53 +27,53 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Product repository — replaces Eloquent model query methods and scopes.
+ * Product repository — replaces CFC finder methods and <cfquery> data access.
  *
  * Spring Data JPA generates the implementation automatically.
- * Eloquent: Product::where(...)->get() → productRepository.findByXxx()
+ * CFML: queryExecute("SELECT ... FROM products WHERE ...") → productRepository.findByXxx()
  *
  * Extends:
  *   JpaRepository          — standard CRUD + pagination
- *   JpaSpecificationExecutor — dynamic query composition (replaces scope chaining)
+ *   JpaSpecificationExecutor — dynamic query composition (replaces dynamic <cfquery> WHERE building)
  */
 @Repository
 public interface ProductRepository
         extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
 
     // ==========================================================================
-    // Derived Query Methods (replaces Eloquent scopes)
+    // Derived Query Methods (replaces CFC finder methods)
     //
     // Spring Data JPA generates queries from method names automatically.
-    // Eloquent: Product::where('is_active', true)->get()
+    // CFML: <cfquery>SELECT * FROM products WHERE is_active = 1</cfquery>
     // Spring:   productRepository.findByActiveTrue()
     // ==========================================================================
 
-    // scopeActive → findByActiveTrue
+    // getActiveProducts() → findByActiveTrue
     List<Product> findByActiveTrue();
 
-    // scopeInCategory → findByCategoryId
+    // getByCategory(id) → findByCategoryId
     List<Product> findByCategoryId(Long categoryId);
 
-    // scopePriceRange → findByPriceBetween
+    // getByPriceRange(min,max) → findByPriceBetween
     List<Product> findByPriceBetween(BigDecimal min, BigDecimal max);
 
-    // Eloquent: Product::where('slug', $slug)->first()
+    // CFML: SELECT * FROM products WHERE slug = <cfqueryparam value="#slug#"> (first row)
     Optional<Product> findBySlug(String slug);
 
-    // Eloquent: Product::where('status', 'active')->where('category_id', $id)->get()
+    // CFML: SELECT * FROM products WHERE status = <..> AND category_id = <..>
     List<Product> findByStatusAndCategoryId(ProductStatus status, Long categoryId);
 
-    // Eloquent: Product::where('name', 'like', "%$query%")->get()
+    // CFML: SELECT * FROM products WHERE name LIKE <cfqueryparam value="%#query#%">
     List<Product> findByNameContainingIgnoreCase(String name);
 
-    // Combined scopes via method name composition:
-    // Eloquent: Product::active()->inCategory($id)->get()
+    // Combined finders via method name composition:
+    // CFML: getActiveProductsByCategory(id)
     List<Product> findByActiveTrueAndCategoryId(Long categoryId);
 
-    // Eloquent: Product::where('created_at', '>', $date)->get()
+    // CFML: SELECT * FROM products WHERE created_at > <cfqueryparam value="#date#">
     List<Product> findByCreatedAtAfter(LocalDateTime date);
 
-    // Eloquent: Product::where('price', '>=', $min)->where('price', '<=', $max)->where('is_active', true)->get()
+    // CFML: SELECT * FROM products WHERE price >= <..> AND price <= <..> AND is_active = 1
     List<Product> findByActiveTrueAndPriceBetween(BigDecimal min, BigDecimal max);
 
     // Search with multiple filters
@@ -84,22 +84,22 @@ public interface ProductRepository
 
     // ==========================================================================
     // Pagination and Sorting
-    // Eloquent: Product::paginate(15) → productRepository.findAll(Pageable)
+    // CFML: <cfquery maxrows=...> + startRow, or SQL LIMIT/OFFSET → Pageable
     // ==========================================================================
 
-    // Eloquent: Product::where('is_active', true)->paginate(10)
+    // CFML: paged query of active products
     Page<Product> findByActiveTrue(Pageable pageable);
 
-    // Eloquent: Product::where('category_id', $id)->orderBy('price', 'asc')->get()
+    // CFML: SELECT * FROM products WHERE category_id = <..> ORDER BY price ASC
     List<Product> findByCategoryId(Long categoryId, Sort sort);
 
-    // Eloquent: Product::where('category_id', $id)->paginate(10)
+    // CFML: paged query filtered by category
     Page<Product> findByCategoryId(Long categoryId, Pageable pageable);
 
     // ==========================================================================
     // JPQL Queries (@Query)
     // For queries too complex for derived method names.
-    // Eloquent: Product::whereRaw(...) or complex query builder chains
+    // CFML: dynamic <cfquery> blocks assembled with <cfif>/string concatenation
     // ==========================================================================
 
     // Complex filter with JPQL
@@ -115,7 +115,7 @@ public interface ProductRepository
             @Param("minPrice") BigDecimal minPrice,
             @Param("maxPrice") BigDecimal maxPrice);
 
-    // Eloquent: Product::where('name', 'like', "%$query%")->orWhere('description', 'like', "%$query%")->get()
+    // CFML: WHERE name LIKE <..> OR description LIKE <..>
     @Query("""
         SELECT p FROM Product p
         WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))
@@ -129,7 +129,7 @@ public interface ProductRepository
 
     // ==========================================================================
     // Native SQL Queries
-    // Eloquent: DB::select('SELECT ... FROM products WHERE ...')
+    // CFML: raw <cfquery> SQL against the datasource
     // Use sparingly — prefer JPQL for portability.
     // ==========================================================================
 
@@ -149,7 +149,7 @@ public interface ProductRepository
 
     // ==========================================================================
     // @Modifying for UPDATE/DELETE operations
-    // Eloquent: Product::where('category_id', $id)->update(['is_active' => false])
+    // CFML: <cfquery>UPDATE products SET is_active = 0 WHERE category_id = <..></cfquery>
     // ==========================================================================
 
     @Modifying
@@ -160,18 +160,18 @@ public interface ProductRepository
     @Query("UPDATE Product p SET p.status = :status WHERE p.id IN :ids")
     int updateStatusForIds(@Param("ids") List<Long> ids, @Param("status") ProductStatus status);
 
-    // Soft delete via JPQL (replaces Eloquent $model->delete() with SoftDeletes)
+    // Soft delete via JPQL (replaces UPDATE products SET deleted_at = <now> in CFML)
     @Modifying
     @Query("UPDATE Product p SET p.deletedAt = :now WHERE p.id = :id")
     int softDeleteById(@Param("id") Long id, @Param("now") LocalDateTime now);
 
-    // Restore soft-deleted (Eloquent: $model->restore())
+    // Restore soft-deleted (CFML: UPDATE products SET deleted_at = NULL WHERE id = <..>)
     @Modifying
     @Query("UPDATE Product p SET p.deletedAt = null WHERE p.id = :id")
     int restoreById(@Param("id") Long id);
 
     // ==========================================================================
-    // @EntityGraph — eager loading (replaces Eloquent ::with(['category', 'tags']))
+    // @EntityGraph — eager loading (replaces separate <cfquery> lookups per row)
     // Avoids N+1 queries by joining related entities.
     // ==========================================================================
 
@@ -183,7 +183,7 @@ public interface ProductRepository
     List<Product> findByActiveTrueOrderByCreatedAtDesc();
 
     // ==========================================================================
-    // Projections (replaces Eloquent ::select('id', 'name', 'price'))
+    // Projections (replaces SELECT id, name, price in a <cfquery>)
     // Returns only the fields you need, improving performance.
     // ==========================================================================
 
@@ -199,8 +199,8 @@ public interface ProductRepository
 
     // ==========================================================================
     // Count and Exists
-    // Eloquent: Product::where('category_id', $id)->count()
-    // Eloquent: Product::where('slug', $slug)->exists()
+    // CFML: SELECT COUNT(*) FROM products WHERE category_id = <..>
+    // CFML: SELECT 1 FROM products WHERE slug = <..> (recordCount > 0)
     // ==========================================================================
 
     long countByCategoryId(Long categoryId);
@@ -211,11 +211,11 @@ public interface ProductRepository
 }
 
 // =============================================================================
-// Specifications for Dynamic Queries (replaces Eloquent scope composition)
+// Specifications for Dynamic Queries (replaces dynamic <cfquery> WHERE building)
 // =============================================================================
 //
 // Use when you need to compose queries dynamically at runtime,
-// similar to chaining Eloquent scopes: Product::active()->inCategory($id)->get()
+// similar to a CFC that appends WHERE clauses with <cfif> around a <cfquery>.
 //
 // Usage in service:
 //   Specification<Product> spec = ProductSpecifications.isActive()
@@ -237,28 +237,28 @@ public final class ProductSpecifications {
 
     private ProductSpecifications() {} // utility class
 
-    // Eloquent: scopeActive
+    // CFML: <cfif active> AND is_active = 1 </cfif>
     public static Specification<Product> isActive() {
         return (root, query, cb) -> cb.isTrue(root.get("active"));
     }
 
-    // Eloquent: scopeInCategory
+    // CFML: <cfif structKeyExists(filters,"category")> AND category_id = <..> </cfif>
     public static Specification<Product> inCategory(Long categoryId) {
         return (root, query, cb) -> cb.equal(root.get("category").get("id"), categoryId);
     }
 
-    // Eloquent: scopePriceRange
+    // CFML: <cfif min neq "" and max neq ""> AND price BETWEEN <..> AND <..> </cfif>
     public static Specification<Product> priceBetween(BigDecimal min, BigDecimal max) {
         return (root, query, cb) -> cb.between(root.get("price"), min, max);
     }
 
-    // Eloquent: where('name', 'like', "%$query%")
+    // CFML: AND name LIKE <cfqueryparam value="%#name#%">
     public static Specification<Product> nameContains(String name) {
         return (root, query, cb) ->
             cb.like(cb.lower(root.get("name")), "%" + name.toLowerCase() + "%");
     }
 
-    // Eloquent: where('created_at', '>', $date)
+    // CFML: AND created_at > <cfqueryparam value="#date#">
     public static Specification<Product> createdAfter(java.time.LocalDateTime date) {
         return (root, query, cb) -> cb.greaterThan(root.get("createdAt"), date);
     }

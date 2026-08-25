@@ -1,91 +1,85 @@
 // =============================================================================
-// PHP to Java Service Conversion Example
-// Part of the PHP-to-Java Migration Framework
+// ColdFusion (CFML) to Java Service Conversion Example
+// Part of the ColdFusion-to-Java Migration Framework
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// BEFORE: PHP Laravel Service (app/Services/ProductService.php)
+// BEFORE: ColdFusion service CFC (cfcs/ProductService.cfc)
+// Typically instantiated once and stored in the application scope:
+//   application.productService = createObject("component","cfcs.ProductService").init()
 // -----------------------------------------------------------------------------
 /*
-<?php
+component displayname="ProductService" output="false" {
 
-namespace App\Services;
-
-use App\Models\Product;
-use App\Repositories\ProductRepository;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
-
-class ProductService
-{
-    protected $productRepository;
-
-    public function __construct(ProductRepository $productRepository)
-    {
-        $this->productRepository = $productRepository;
+    // init() is the CFC "constructor"; dependencies are wired manually
+    public function init(productDao) {
+        variables.productDao = arguments.productDao;
+        return this;
     }
 
-    public function getAllProducts()
-    {
-        return Cache::remember('products.all', 3600, function () {
-            Log::info('Fetching all products from database');
-            return $this->productRepository->all();
-        });
+    public array function getAllProducts() {
+        // CF caching: reuse a cached result if present, else query and cache it
+        var cached = cacheGet("products.all");
+        if (!isNull(cached)) {
+            return cached;
+        }
+        writeLog(file="app", text="Fetching all products from database");
+        var products = variables.productDao.all();
+        cachePut("products.all", products, createTimeSpan(0,1,0,0)); // 1 hour
+        return products;
     }
 
-    public function getProductById($id)
-    {
-        $cacheKey = "products.{$id}";
-
-        return Cache::remember($cacheKey, 3600, function () use ($id) {
-            return $this->productRepository->find($id);
-        });
+    public any function getProductById(required numeric id) {
+        var cacheKey = "products." & arguments.id;
+        var cached = cacheGet(cacheKey);
+        if (!isNull(cached)) {
+            return cached;
+        }
+        var product = variables.productDao.find(arguments.id);
+        cachePut(cacheKey, product, createTimeSpan(0,1,0,0));
+        return product;
     }
 
-    public function createProduct(array $data)
-    {
-        $product = $this->productRepository->create($data);
-
-        Cache::forget('products.all');
-        Log::info('Product created', ['id' => $product->id]);
-
-        return $product;
+    public any function createProduct(required struct data) {
+        var product = variables.productDao.create(arguments.data);
+        cacheRemove("products.all");
+        writeLog(file="app", text="Product created, id=" & product.id);
+        return product;
     }
 
-    public function updateProduct($id, array $data)
-    {
-        $product = $this->productRepository->update($id, $data);
-
-        Cache::forget('products.all');
-        Cache::forget("products.{$id}");
-        Log::info('Product updated', ['id' => $id]);
-
-        return $product;
+    public any function updateProduct(required numeric id, required struct data) {
+        var product = variables.productDao.update(arguments.id, arguments.data);
+        cacheRemove("products.all");
+        cacheRemove("products." & arguments.id);
+        writeLog(file="app", text="Product updated, id=" & arguments.id);
+        return product;
     }
 
-    public function deleteProduct($id)
-    {
-        $this->productRepository->delete($id);
-
-        Cache::forget('products.all');
-        Cache::forget("products.{$id}");
-        Log::info('Product deleted', ['id' => $id]);
+    public void function deleteProduct(required numeric id) {
+        variables.productDao.delete(arguments.id);
+        cacheRemove("products.all");
+        cacheRemove("products." & arguments.id);
+        writeLog(file="app", text="Product deleted, id=" & arguments.id);
     }
 
-    public function searchProducts($query, $filters = [])
-    {
-        return $this->productRepository
-            ->where('name', 'like', "%{$query}%")
-            ->when($filters['category'] ?? null, function ($q, $category) {
-                return $q->where('category_id', $category);
-            })
-            ->when($filters['min_price'] ?? null, function ($q, $minPrice) {
-                return $q->where('price', '>=', $minPrice);
-            })
-            ->when($filters['max_price'] ?? null, function ($q, $maxPrice) {
-                return $q->where('price', '<=', $maxPrice);
-            })
-            ->get();
+    // Dynamic search built up with <cfquery> + <cfqueryparam>
+    public query function searchProducts(required string q, struct filters = {}) {
+        var sql = "SELECT * FROM products WHERE name LIKE :q";
+        var params = { q = { value = "%" & arguments.q & "%", cfsqltype = "cf_sql_varchar" } };
+
+        if (structKeyExists(arguments.filters, "category")) {
+            sql &= " AND category_id = :category";
+            params.category = { value = arguments.filters.category, cfsqltype = "cf_sql_integer" };
+        }
+        if (structKeyExists(arguments.filters, "min_price")) {
+            sql &= " AND price >= :minPrice";
+            params.minPrice = { value = arguments.filters.min_price, cfsqltype = "cf_sql_decimal" };
+        }
+        if (structKeyExists(arguments.filters, "max_price")) {
+            sql &= " AND price <= :maxPrice";
+            params.maxPrice = { value = arguments.filters.max_price, cfsqltype = "cf_sql_decimal" };
+        }
+        return queryExecute(sql, params, { datasource = "appDS" });
     }
 }
 */
@@ -112,7 +106,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-// @Service registers this class in the Spring ApplicationContext (replaces Service Provider binding)
+// @Service registers this class in the Spring ApplicationContext
+// (replaces the application-scope singleton CFC pattern)
 @Service
 @Transactional(readOnly = true) // Default read-only transactions for query methods
 public class ProductService {
@@ -121,26 +116,27 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
-    // Constructor injection (same pattern as Laravel; Spring auto-wires single-constructor beans)
+    // Constructor injection replaces init(productDao) + manual application-scope wiring;
+    // Spring auto-wires single-constructor beans.
     public ProductService(ProductRepository productRepository) {
         this.productRepository = productRepository;
     }
 
-    // Cache::remember('products.all', 3600, ...) → @Cacheable
+    // cacheGet/cachePut("products.all") → @Cacheable
     @Cacheable(value = "products", key = "'all'")
     public List<Product> getAllProducts() {
         log.info("Fetching all products from database");
         return productRepository.findAll();
     }
 
-    // Cache::remember("products.{$id}", 3600, ...) → @Cacheable with dynamic key
+    // cacheGet/cachePut("products." & id) → @Cacheable with dynamic key
     @Cacheable(value = "products", key = "#id")
     public Product getProductById(Long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
     }
 
-    // Cache::forget('products.all') → @CacheEvict
+    // cacheRemove("products.all") → @CacheEvict
     @Transactional // Override read-only for write operations
     @CacheEvict(value = "products", key = "'all'")
     public Product createProduct(CreateProductRequest request) {
@@ -188,7 +184,7 @@ public class ProductService {
         log.info("Product deleted: {}", id);
     }
 
-    // Replaces Eloquent ->where()->when()->get() chain with repository query methods
+    // Replaces the dynamic <cfquery>/<cfqueryparam> search with repository query methods
     public List<Product> searchProducts(String query, ProductSearchFilters filters) {
         if (filters != null && filters.categoryId() != null
                 && filters.minPrice() != null && filters.maxPrice() != null) {
@@ -205,7 +201,7 @@ public class ProductService {
 
 // -----------------------------------------------------------------------------
 // DTO: Search Filters (dto/ProductSearchFilters.java)
-// Java record replaces PHP associative arrays for typed, immutable data
+// Java record replaces a CFML struct for typed, immutable data
 // -----------------------------------------------------------------------------
 
 /*
@@ -222,7 +218,7 @@ public record ProductSearchFilters(
 
 // -----------------------------------------------------------------------------
 // Custom Exception (exception/ResourceNotFoundException.java)
-// Replaces abort(404) and ModelNotFoundException
+// Replaces <cfheader statuscode="404"> / <cfthrow>
 // -----------------------------------------------------------------------------
 
 /*
@@ -246,7 +242,7 @@ public class ResourceNotFoundException extends RuntimeException {
 
 // -----------------------------------------------------------------------------
 // Spring Cache Configuration (config/CacheConfig.java)
-// Replaces config/cache.php
+// Replaces CF <cfcache> / CF Administrator cache settings
 // -----------------------------------------------------------------------------
 
 /*
@@ -267,21 +263,22 @@ public class CacheConfig {
 
 // -----------------------------------------------------------------------------
 // Register in Spring (automatic — no manual registration needed)
-// Unlike Laravel's Service Providers, @Service is auto-detected via component scanning.
+// Unlike a CFC placed in the application scope by hand, @Service is auto-detected
+// via component scanning.
 // -----------------------------------------------------------------------------
 
 // -----------------------------------------------------------------------------
 // KEY CONVERSION PATTERNS:
 // -----------------------------------------------------------------------------
-// 1.  @Service replaces Service Provider registration — auto-detected by Spring
-// 2.  Cache::remember() → @Cacheable (declarative caching annotation)
-// 3.  Cache::forget() → @CacheEvict (declarative cache eviction)
-// 4.  Log::info() → SLF4J Logger: log.info() with {} placeholder syntax
-// 5.  Repository pattern maps directly — Spring Data JPA generates implementations
+// 1.  @Service replaces the application-scope singleton CFC — auto-detected by Spring
+// 2.  cacheGet()/cachePut() → @Cacheable (declarative caching annotation)
+// 3.  cacheRemove() → @CacheEvict (declarative cache eviction)
+// 4.  writeLog()/<cflog> → SLF4J Logger: log.info() with {} placeholder syntax
+// 5.  DAO/DataMgr CFC → Spring Data JPA repository (implementations auto-generated)
 // 6.  No interface required (but recommended for testability)
-// 7.  @Transactional manages database transactions (replaces DB::transaction())
+// 7.  @Transactional manages database transactions (replaces <cftransaction>)
 // 8.  @Transactional(readOnly = true) optimizes read-only queries
-// 9.  Throw custom exceptions instead of returning null (fail-fast pattern)
-// 10. Java records replace PHP associative arrays for DTOs (immutable, typed)
-// 11. ->when() conditional queries → if-statements or Specifications pattern
+// 9.  Throw custom exceptions instead of returning null/empty struct (fail-fast pattern)
+// 10. Java records replace CFML structs for DTOs (immutable, typed)
+// 11. Dynamic <cfquery> + <cfqueryparam> filters → derived query methods / Specifications
 // 12. Use structured logging with {} placeholders, not string concatenation

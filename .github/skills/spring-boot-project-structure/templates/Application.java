@@ -1,9 +1,10 @@
 // =============================================================================
 // Spring Boot Application Entry Point
-// Part of the PHP-to-Java Migration Framework
+// Part of the ColdFusion-to-Java Migration Framework
 // =============================================================================
 // This is the entry point for Spring Boot applications.
-// Replaces Laravel's bootstrap/app.php, public/index.php, and config/app.php
+// Replaces ColdFusion's Application.cfc / Application.cfm bootstrap and the
+// web-root request dispatch (index.cfm / onRequest).
 // =============================================================================
 
 package com.example.app;
@@ -21,10 +22,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  *                            @Service, @Controller, @Repository beans
  *
  * This replaces:
- *   - Laravel's bootstrap/app.php (application bootstrapping)
- *   - Laravel's public/index.php (HTTP entry point)
- *   - Laravel's config/app.php (app configuration — now in application.yml)
- *   - Laravel's Service Providers auto-discovery (Spring uses component scanning)
+ *   - Application.cfc onApplicationStart() (application bootstrapping)
+ *   - The web-root HTTP entry point (index.cfm / onRequest dispatch)
+ *   - CF Administrator / settings.ini.cfm app configuration — now in application.yml
+ *   - Manual application-scope CFC wiring (Spring uses component scanning)
  */
 @SpringBootApplication
 public class Application {
@@ -57,7 +58,8 @@ public class Application {
 
 // =============================================================================
 // application.yml — Main Configuration
-// Replaces: .env, config/app.php, config/database.php, config/cache.php
+// Replaces: Application.cfc this.* settings, settings.ini.cfm, CF Administrator
+//           datasource / mail / cache settings
 // Place in: src/main/resources/application.yml
 // =============================================================================
 
@@ -66,16 +68,17 @@ public class Application {
 
 spring:
   application:
-    name: my-app                           # APP_NAME in .env
+    name: my-app                           # this.name in Application.cfc
 
-  # Database — replaces config/database.php + DB_* in .env
+  # Database — replaces the CF Administrator datasource / this.datasource
+  # MySQL is shown (the common ColdFusion source DB); swap the url/driver for PostgreSQL if desired.
   datasource:
-    url: jdbc:postgresql://localhost:5432/myapp
-    username: ${DB_USERNAME:postgres}
+    url: jdbc:mysql://localhost:3306/myapp
+    username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:secret}
-    driver-class-name: org.postgresql.Driver
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
-  # JPA / Hibernate — replaces Eloquent config
+  # JPA / Hibernate — replaces CF-ORM / DataMgr / <cfquery> data access
   jpa:
     hibernate:
       ddl-auto: validate                   # Use Flyway for migrations, not auto-DDL
@@ -85,31 +88,31 @@ spring:
         format_sql: true
         default_batch_fetch_size: 16       # Avoid N+1 queries
 
-  # Flyway — replaces database/migrations/
+  # Flyway — replaces hand-written .sql schema scripts / cfmigrations
   flyway:
     enabled: true
     locations: classpath:db/migration
 
-  # Thymeleaf — replaces Blade config
+  # Thymeleaf — replaces .cfm views / <cfoutput> rendering
   thymeleaf:
     cache: true                            # Set false in dev profile
     prefix: classpath:/templates/
     suffix: .html
 
-  # Cache — replaces config/cache.php
+  # Cache — replaces <cfcache> / CF Administrator cache settings
   cache:
     type: caffeine                         # or redis
     caffeine:
       spec: maximumSize=500,expireAfterWrite=3600s
 
-  # Mail — replaces config/mail.php + MAIL_* in .env
+  # Mail — replaces <cfmail> + CF Administrator mail server settings
   mail:
     host: ${MAIL_HOST:smtp.mailtrap.io}
     port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
 
-  # Session — replaces config/session.php
+  # Session — replaces this.sessionManagement / this.sessionTimeout
   session:
     store-type: jdbc                       # or redis
     timeout: 30m
@@ -120,14 +123,14 @@ server:
   servlet:
     context-path: /
 
-# Actuator — replaces Laravel Telescope
+# Actuator — replaces the CF Server Monitor
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics
 
-# Logging — replaces config/logging.php
+# Logging — replaces <cflog> / writeLog() destinations and CF log settings
 logging:
   level:
     root: INFO
@@ -137,62 +140,62 @@ logging:
 
 // =============================================================================
 // pom.xml Starter Dependencies
-// Replaces: composer.json require section
+// Replaces: JARs dropped in /lib, CF mappings, or box.json dependencies
 // =============================================================================
 
 /*
-<!-- Core Spring Boot dependencies (replaces laravel/framework) -->
+<!-- Core Spring Boot dependencies -->
 <dependencies>
-    <!-- Spring Boot Web MVC (replaces laravel/framework routing + HTTP) -->
+    <!-- Spring Boot Web MVC (replaces .cfm request dispatch / onRequest) -->
     <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
 
-    <!-- Thymeleaf templates (replaces Blade views) -->
+    <!-- Thymeleaf templates (replaces .cfm views / <cfoutput>) -->
     <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-thymeleaf</artifactId>
     </dependency>
 
-    <!-- Spring Data JPA + Hibernate (replaces Eloquent ORM) -->
+    <!-- Spring Data JPA + Hibernate (replaces CF-ORM / DataMgr / <cfquery>) -->
     <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-data-jpa</artifactId>
     </dependency>
 
-    <!-- Spring Security (replaces laravel/framework auth) -->
+    <!-- Spring Security (replaces <cflogin> / <cfloginuser>) -->
     <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-security</artifactId>
     </dependency>
 
-    <!-- Bean Validation (replaces Laravel validation) -->
+    <!-- Bean Validation (replaces isValid() / <cfparam> type checks) -->
     <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-validation</artifactId>
     </dependency>
 
-    <!-- Spring Boot Mail (replaces phpmailer or Laravel Mail) -->
+    <!-- Spring Boot Mail (replaces <cfmail>) -->
     <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-mail</artifactId>
     </dependency>
 
-    <!-- Flyway Migrations (replaces Laravel migrations) -->
+    <!-- Flyway Migrations (replaces hand-written .sql scripts / cfmigrations) -->
     <dependency>
         <groupId>org.flywaydb</groupId>
         <artifactId>flyway-core</artifactId>
     </dependency>
 
-    <!-- PostgreSQL Driver (or mysql-connector-j for MySQL) -->
+    <!-- MySQL Driver (or postgresql for PostgreSQL) -->
     <dependency>
-        <groupId>org.postgresql</groupId>
-        <artifactId>postgresql</artifactId>
+        <groupId>com.mysql</groupId>
+        <artifactId>mysql-connector-j</artifactId>
         <scope>runtime</scope>
     </dependency>
 
-    <!-- Spring Boot DevTools (replaces barryvdh/laravel-debugbar) -->
+    <!-- Spring Boot DevTools (replaces <cfdump> / CF debugging output) -->
     <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-devtools</artifactId>
@@ -200,7 +203,7 @@ logging:
         <optional>true</optional>
     </dependency>
 
-    <!-- Spring Boot Actuator (replaces laravel/telescope) -->
+    <!-- Spring Boot Actuator (replaces the CF Server Monitor) -->
     <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-actuator</artifactId>

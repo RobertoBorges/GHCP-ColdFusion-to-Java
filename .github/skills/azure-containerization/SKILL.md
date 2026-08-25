@@ -130,13 +130,14 @@ properties:
 }
 ```
 
-## PHP to Container Migration Notes
+## ColdFusion to Container Migration Notes
 
-| PHP | Java Container |
-|-----|----------------|
-| Apache/Nginx | Embedded Tomcat/Netty (Spring Boot) |
-| php.ini | application.yml + env vars |
-| .env | Environment variables / Spring profiles |
-| storage/ folder | Azure Blob Storage |
-| sessions | Redis / Azure Cache |
-| logs | stdout → Azure Monitor |
+| ColdFusion | Java Container |
+|------------|----------------|
+| CF engine on an app server (Adobe CF on Tomcat/JRun, Lucee/Railo on a servlet container) | Embedded Tomcat/Netty (Spring Boot) |
+| CF Administrator settings / `Application.cfc` `this.*` | application.yml + env vars |
+| `settings.ini.cfm` / CF Administrator | Environment variables / Spring profiles |
+| File-storage directories on disk | Azure Blob Storage |
+| CF `session` scope | Redis / Azure Cache |
+| CF logs (`<cflog>` / server logs) | stdout → Azure Monitor |
+| JVM args in `jvm.config` | `JAVA_TOOL_OPTIONS` / container JVM flags |

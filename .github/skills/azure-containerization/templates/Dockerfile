@@ -65,7 +65,7 @@ ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
 #
 # Run with environment variables:
 #   docker run -d -p 8080:8080 \
-#     -e SPRING_DATASOURCE_URL="jdbc:postgresql://db:5432/mydb" \
+#     -e SPRING_DATASOURCE_URL="jdbc:mysql://db:3306/mydb" \
 #     -e SPRING_PROFILES_ACTIVE=development \
 #     --name myapp myapp:latest
 #

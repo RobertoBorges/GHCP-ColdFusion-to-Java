@@ -20,8 +20,8 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=development
       - SERVER_PORT=8080
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/projectnamedb
-      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/projectnamedb
+      - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=YourStrong!Password123
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
@@ -38,30 +38,29 @@ services:
     command: mvn spring-boot:run -Dspring-boot.run.jvmArguments="-Dserver.port=8080"
 
   # ===========================================================================
-  # PostgreSQL Database (replaces MySQL from PHP)
+  # MySQL Database (matches the ColdFusion app's MySQL source database)
   # ===========================================================================
   db:
-    image: postgres:16-alpine
+    image: mysql:8.0
     container_name: projectname-db
     ports:
-      - "5432:5432"
+      - "3306:3306"
     environment:
-      - POSTGRES_DB=projectnamedb
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=YourStrong!Password123
+      - MYSQL_DATABASE=projectnamedb
+      - MYSQL_ROOT_PASSWORD=YourStrong!Password123
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"YourStrong!Password123\" --silent"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 20s
     networks:
       - projectname-network
 
   # ===========================================================================
-  # Redis Cache (replaces PHP file/array cache)
+  # Redis Cache (replaces <cfcache> / CF Administrator cache)
   # ===========================================================================
   redis:
     image: redis:7-alpine
@@ -109,7 +108,7 @@ services:
 # Volumes
 # =============================================================================
 volumes:
-  postgres-data:
+  mysql-data:
   redis-data:
   azurite-data:
   seq-data:
@@ -142,6 +141,6 @@ networks:
 # Run database migrations (Flyway):
 #   docker-compose exec app mvn flyway:migrate
 #
-# Access PostgreSQL:
-#   docker-compose exec db psql -U postgres -d projectnamedb
+# Access MySQL:
+#   docker-compose exec db mysql -uroot -p projectnamedb
 # =============================================================================

@@ -1,7 +1,7 @@
 ---
 agent: agent
-model: Claude Sonnet 4.5 (copilot)
-tools: ['search/codebase', 'search/usages', 'vscode/vscodeAPI', 'read/problems', 'search/changes', 'execute/testFailure', 'vscode/runCommand', 'read/terminalLastCommand', 'vscode/openSimpleBrowser', 'web/fetch', 'search/searchResults', 'web/githubRepo', 'vscode/extensions', 'execute/runTests', 'edit/editFiles', 'search', 'azure-mcp/*']
+model: Claude Sonnet 5 (copilot)
+tools: [vscode, execute, read, browser, edit, search, web, azure/search]
 ---
 
 # Phase 5: Deploy Application to Azure

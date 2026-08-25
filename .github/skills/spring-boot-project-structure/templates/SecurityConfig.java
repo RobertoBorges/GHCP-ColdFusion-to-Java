@@ -1,9 +1,9 @@
 // =============================================================================
 // Spring Security Configuration
-// Part of the PHP-to-Java Migration Framework
+// Part of the ColdFusion-to-Java Migration Framework
 // =============================================================================
-// Spring Security setup for migrated PHP applications.
-// Replaces Laravel's auth configuration, middleware, and guards.
+// Spring Security setup for migrated ColdFusion applications.
+// Replaces <cflogin> / <cfloginuser>, isUserInRole(), and session-based auth checks.
 // =============================================================================
 
 package com.example.app.config;
@@ -21,10 +21,10 @@ import org.springframework.security.web.SecurityFilterChain;
  * Spring Security configuration.
  *
  * Replaces:
- *   - Laravel's config/auth.php (guards, providers, passwords)
- *   - Laravel's auth middleware ('auth', 'guest', 'verified')
- *   - Laravel's Gate and Policy definitions (partially)
- *   - Laravel's app/Http/Kernel.php middleware stack
+ *   - The <cflogin> / <cfloginuser> authentication container
+ *   - isUserInRole() role checks scattered through .cfm pages
+ *   - Security gating done in Application.cfc onRequestStart()
+ *   - Custom login/logout .cfm pages
  *
  * @EnableWebSecurity activates Spring Security's web support.
  * @EnableMethodSecurity enables @PreAuthorize and @Secured on methods.
@@ -37,8 +37,11 @@ public class SecurityConfig {
     // ==========================================================================
     // Password Encoder
     //
-    // Laravel: Hash::make($password) uses bcrypt by default
-    // Spring: BCryptPasswordEncoder is the equivalent
+    // CFML: hash(password, "SHA-512") / a custom bcrypt CFC / encrypt()
+    // Spring: BCryptPasswordEncoder is the modern equivalent
+    //
+    // If the legacy app used weaker hashing (SHA/MD5), re-hash with BCrypt on the
+    // user's next successful login.
     //
     // Usage in services: passwordEncoder.encode("password")
     //                    passwordEncoder.matches("password", encodedPassword)
@@ -53,12 +56,11 @@ public class SecurityConfig {
     // Security Filter Chain — Form Login (Session-based)
     //
     // This replaces:
-    //   - Route middleware: Route::middleware('auth')
-    //   - Guest middleware: Route::middleware('guest')
-    //   - config/auth.php guards (web guard)
-    //   - Login/Logout routes
+    //   - The <cflogin> block that wrapped protected pages
+    //   - isUserInRole() checks and onRequestStart() security gates
+    //   - Login/Logout .cfm pages
     //
-    // Use this for server-rendered apps with Thymeleaf (replaces Blade + auth).
+    // Use this for server-rendered apps with Thymeleaf (replaces .cfm pages + <cflogin>).
     // ==========================================================================
 
     @Bean
@@ -66,7 +68,7 @@ public class SecurityConfig {
         http
             // ================================================================
             // CSRF Protection
-            // Laravel: @csrf in Blade forms (automatic with VerifyCsrfToken middleware)
+            // CFML: <cfform> or CSRFGenerateToken()/CSRFVerifyToken() (often absent in legacy apps)
             // Spring: Enabled by default. Thymeleaf auto-adds CSRF tokens with th:action.
             //
             // For REST APIs: disable CSRF and use JWT or other token auth instead.
@@ -79,7 +81,7 @@ public class SecurityConfig {
 
             // ================================================================
             // Session Management
-            // Laravel: config/session.php
+            // CFML: this.sessionManagement / this.sessionTimeout in Application.cfc
             // Spring: Configures session creation and fixation protection.
             // ================================================================
             .sessionManagement(session -> session
@@ -90,35 +92,35 @@ public class SecurityConfig {
             // ================================================================
             // Authorization Rules
             //
-            // Laravel equivalents:
-            //   Route::middleware('auth')  → .authenticated()
-            //   Route::middleware('guest') → .anonymous() or permitAll
-            //   Route::middleware('admin') → .hasRole("ADMIN")
-            //   Route::middleware('can:manage-products') → .hasAuthority("MANAGE_PRODUCTS")
+            // CFML equivalents:
+            //   <cfif isUserLoggedIn()>          → .authenticated()
+            //   pages outside the <cflogin> block → .anonymous() or permitAll
+            //   <cfif isUserInRole("admin")>     → .hasRole("ADMIN")
+            //   fine-grained permission checks    → .hasAuthority("MANAGE_PRODUCTS")
             //
             // Rules are evaluated in order — put specific rules first.
             // ================================================================
             .authorizeHttpRequests(auth -> auth
-                // Public routes (no auth required) — replaces routes without 'auth' middleware
+                // Public routes (no auth required) — replaces .cfm pages outside the <cflogin> block
                 .requestMatchers("/", "/home", "/about").permitAll()
                 .requestMatchers("/login", "/register", "/forgot-password").permitAll()
                 .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
 
-                // Admin-only routes — replaces Route::middleware('admin')
+                // Admin-only routes — replaces isUserInRole("admin") checks
                 .requestMatchers("/admin/**").hasRole("ADMIN")
 
-                // API routes — replaces Route::middleware('auth:sanctum')
+                // API routes — replaces API-key / session checks in api/
                 .requestMatchers("/api/**").authenticated()
 
-                // All other routes require authentication — replaces Route::middleware('auth')
+                // All other routes require authentication — replaces the <cflogin> gate
                 .anyRequest().authenticated()
             )
 
             // ================================================================
             // Form Login
             //
-            // Laravel: Auth::routes() generates login/register/password routes
+            // CFML: login.cfm form → <cflogin> / <cfloginuser name="..." roles="...">
             // Spring: Configure login page and success/failure handlers.
             // ================================================================
             .formLogin(form -> form
@@ -126,7 +128,7 @@ public class SecurityConfig {
                 .loginProcessingUrl("/login")                    // POST endpoint for login form
                 .defaultSuccessUrl("/dashboard", true)           // Redirect after login
                 .failureUrl("/login?error=true")                 // Redirect on login failure
-                .usernameParameter("email")                      // Laravel uses 'email' field
+                .usernameParameter("email")                      // the login form's email field
                 .passwordParameter("password")
                 .permitAll()
             )
@@ -134,7 +136,7 @@ public class SecurityConfig {
             // ================================================================
             // Logout
             //
-            // Laravel: Auth::logout() or POST /logout
+            // CFML: logout.cfm calling <cflogout>
             // Spring: Configured here with redirect.
             // ================================================================
             .logout(logout -> logout
@@ -148,7 +150,7 @@ public class SecurityConfig {
             // ================================================================
             // Remember Me
             //
-            // Laravel: Auth::viaRemember() / 'remember' checkbox
+            // CFML: a persistent-login cookie (e.g. an encrypted cookie checked in onRequestStart)
             // Spring: Token-based remember-me.
             // ================================================================
             .rememberMe(remember -> remember
@@ -163,7 +165,7 @@ public class SecurityConfig {
     // ==========================================================================
     // JWT Configuration (Alternative — for API-only applications)
     //
-    // Laravel Sanctum/Passport → Spring Security + JWT
+    // CFML API token / session auth (custom) → Spring Security + JWT
     //
     // Uncomment and use this INSTEAD of the form login SecurityFilterChain
     // for REST API applications.
@@ -194,7 +196,8 @@ public class SecurityConfig {
 
 // =============================================================================
 // UserDetailsService Implementation
-// Replaces: Laravel's User model with Authenticatable trait
+// Replaces: the CFC that validated credentials for <cfloginuser>
+//           (e.g. a security/user service CFC + its <cfquery> lookup)
 //
 // Place in: security/CustomUserDetailsService.java
 // =============================================================================
@@ -212,8 +215,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-// This replaces Laravel's EloquentUserProvider
-// It loads user data from the database for authentication
+// This replaces the <cfquery> that looked up a user before <cfloginuser>.
+// It loads user data from the database for authentication.
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
@@ -225,14 +228,14 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     // Called by Spring Security during authentication
-    // Laravel equivalent: Auth::attempt(['email' => $email, 'password' => $password])
+    // CFML equivalent: the <cfquery> verifying email + password before <cfloginuser>
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
 
         // Map roles to Spring Security authorities
-        // Laravel: $user->hasRole('admin')
+        // CFML: <cfloginuser name="#email#" password="..." roles="#roleList#">
         // Spring: hasRole('ADMIN') checks for ROLE_ADMIN authority
         List<SimpleGrantedAuthority> authorities = user.getRoles().stream()
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName().toUpperCase()))
@@ -242,7 +245,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .username(user.getEmail())
                 .password(user.getPasswordHash())        // BCrypt hash from database
                 .authorities(authorities)
-                .accountLocked(!user.isActive())          // Laravel: $user->is_active
+                .accountLocked(!user.isActive())          // the active flag column
                 .build();
     }
 }
@@ -252,7 +255,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 // Accessing Current User in Controllers
 // =============================================================================
 //
-// Laravel: Auth::user(), Auth::id(), auth()->user()
+// CFML: getAuthUser(), session.user
 //
 // Spring Option 1: @AuthenticationPrincipal annotation (recommended)
 //
@@ -282,24 +285,24 @@ public class CustomUserDetailsService implements UserDetailsService {
 //
 // Add dependency: thymeleaf-extras-springsecurity6
 //
-// In Thymeleaf templates (replaces Blade @auth, @guest, @can directives):
+// In Thymeleaf templates (replaces <cfif isUserLoggedIn()> / <cfif isUserInRole()> blocks in .cfm):
 //
-//   <!-- @auth → sec:authorize="isAuthenticated()" -->
+//   <!-- <cfif isUserLoggedIn()> → sec:authorize="isAuthenticated()" -->
 //   <div sec:authorize="isAuthenticated()">
 //       Welcome, <span sec:authentication="name">User</span>!
 //   </div>
 //
-//   <!-- @guest → sec:authorize="isAnonymous()" -->
+//   <!-- <cfif NOT isUserLoggedIn()> → sec:authorize="isAnonymous()" -->
 //   <div sec:authorize="isAnonymous()">
 //       <a th:href="@{/login}">Login</a>
 //   </div>
 //
-//   <!-- @can('admin') → sec:authorize="hasRole('ADMIN')" -->
+//   <!-- <cfif isUserInRole('admin')> → sec:authorize="hasRole('ADMIN')" -->
 //   <div sec:authorize="hasRole('ADMIN')">
 //       <a th:href="@{/admin}">Admin Panel</a>
 //   </div>
 //
-//   <!-- Logout form (replaces @csrf + POST /logout) -->
+//   <!-- Logout form (replaces a link to logout.cfm calling <cflogout>) -->
 //   <form th:action="@{/logout}" method="post">
 //       <button type="submit">Logout</button>
 //   </form>

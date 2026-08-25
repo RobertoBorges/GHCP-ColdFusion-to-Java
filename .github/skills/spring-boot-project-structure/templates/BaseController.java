@@ -1,9 +1,10 @@
 // =============================================================================
 // Spring Boot Base Controller Template
-// Part of the PHP-to-Java Migration Framework
+// Part of the ColdFusion-to-Java Migration Framework
 // =============================================================================
 // Base controller with common functionality for all controllers.
-// Replaces Laravel's app/Http/Controllers/Controller.php
+// Replaces a shared base/utility CFC or common UDFs (includes/udf.cfm) that
+// .cfm controller pages relied on.
 // =============================================================================
 
 package com.example.app.controller;
@@ -17,14 +18,14 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
  * Base controller providing common utilities for MVC controllers.
  * Inherit from this class instead of using raw @Controller.
  *
- * Replaces Laravel's base Controller class.
+ * Replaces a shared base CFC / common request-handling UDFs.
  */
 public abstract class BaseController {
 
     // ==========================================================================
-    // Flash Messages (replaces Laravel's ->with() / session()->flash())
+    // Flash Messages (replaces a session.flash struct + <cflocation>)
     //
-    // Laravel: return redirect()->with('success', 'Product created.');
+    // CFML: <cfset session.flash.success = "Product created."><cflocation url="...">
     // Spring: redirectAttributes.addFlashAttribute("success", "Product created.");
     //
     // In Thymeleaf templates, access flash attributes:
@@ -34,7 +35,7 @@ public abstract class BaseController {
 
     /**
      * Sets a success flash message for the next request.
-     * Replaces: return redirect()->with('success', $message);
+     * Replaces: session.flash.success = message; before a <cflocation>.
      */
     protected void flashSuccess(RedirectAttributes redirectAttributes, String message) {
         redirectAttributes.addFlashAttribute("success", message);
@@ -42,7 +43,7 @@ public abstract class BaseController {
 
     /**
      * Sets an error flash message for the next request.
-     * Replaces: return redirect()->with('error', $message);
+     * Replaces: session.flash.error = message; before a <cflocation>.
      */
     protected void flashError(RedirectAttributes redirectAttributes, String message) {
         redirectAttributes.addFlashAttribute("error", message);
@@ -63,9 +64,9 @@ public abstract class BaseController {
     }
 
     // ==========================================================================
-    // Current User Helpers (replaces Laravel's Auth facade)
+    // Current User Helpers (replaces CFML session security functions)
     //
-    // Laravel: Auth::id(), Auth::user(), Auth::check()
+    // CFML: getAuthUser(), isUserLoggedIn(), isUserInRole(), session.user
     // Spring: SecurityContextHolder or @AuthenticationPrincipal annotation
     //
     // Alternative: Use @AuthenticationPrincipal directly in controller methods:
@@ -75,7 +76,7 @@ public abstract class BaseController {
 
     /**
      * Gets the current Authentication object.
-     * Replaces: Auth::user()
+     * Replaces: getAuthUser() / session.user
      */
     protected Authentication getCurrentAuthentication() {
         return SecurityContextHolder.getContext().getAuthentication();
@@ -83,7 +84,7 @@ public abstract class BaseController {
 
     /**
      * Gets the current authenticated username.
-     * Replaces: Auth::user()->name or Auth::user()->email
+     * Replaces: getAuthUser() / session.user.email
      */
     protected String getCurrentUsername() {
         Authentication auth = getCurrentAuthentication();
@@ -92,7 +93,7 @@ public abstract class BaseController {
 
     /**
      * Checks if a user is authenticated.
-     * Replaces: Auth::check() or @auth directive
+     * Replaces: isUserLoggedIn()
      */
     protected boolean isAuthenticated() {
         Authentication auth = getCurrentAuthentication();
@@ -102,7 +103,7 @@ public abstract class BaseController {
 
     /**
      * Checks if the current user has a specific role.
-     * Replaces: Auth::user()->hasRole('admin') or Gate::allows('admin')
+     * Replaces: isUserInRole('admin')
      */
     protected boolean hasRole(String role) {
         Authentication auth = getCurrentAuthentication();
@@ -117,7 +118,7 @@ public abstract class BaseController {
 
     /**
      * Builds a redirect URL.
-     * Replaces: return redirect()->route('products.show', $id);
+     * Replaces: <cflocation url="product.cfm?action=show&id=#id#" addtoken="false">
      *
      * Usage: return redirect("/products/" + id);
      */
@@ -127,7 +128,7 @@ public abstract class BaseController {
 
     /**
      * Redirects to the referer or a fallback URL.
-     * Replaces: return back();
+     * Replaces: <cflocation url="#cgi.http_referer#">
      *
      * Note: In Spring MVC, the Referer header is available but not always reliable.
      * Consider using a hidden input or session attribute for return URLs.
@@ -144,7 +145,7 @@ public abstract class BaseController {
      * Adds common attributes to the model for all views.
      * Call this in each controller method, or use @ModelAttribute.
      *
-     * Replaces: View::share() or View::composer() in AppServiceProvider
+     * Replaces: request-scope variables set in onRequestStart() or a shared header .cfm
      */
     protected void addCommonAttributes(Model model) {
         model.addAttribute("currentUser", getCurrentUsername());
@@ -198,7 +199,7 @@ public class ProductController extends BaseController {
 
 // =============================================================================
 // REST API Base Controller (for API-only controllers)
-// Replaces Laravel API controller conventions.
+// Replaces Taffy / ColdBox REST resource conventions and serializeJSON() responses.
 // =============================================================================
 
 /*
@@ -213,7 +214,7 @@ import java.util.Map;
 public abstract class ApiBaseController {
 
     // Standard JSON success response
-    // Replaces: return response()->json(['success' => true, 'data' => $data]);
+    // Replaces: <cfoutput>#serializeJSON({success: true, data: data})#</cfoutput>
     protected <T> ResponseEntity<ApiResponse<T>> success(T data) {
         return ResponseEntity.ok(new ApiResponse<>(true, null, data));
     }
@@ -229,14 +230,14 @@ public abstract class ApiBaseController {
     }
 
     // Standard JSON error response
-    // Replaces: return response()->json(['success' => false, 'message' => $msg], 400);
+    // Replaces: <cfheader statuscode="400">#serializeJSON({success: false, message: msg})#
     protected ResponseEntity<ApiResponse<Void>> error(String message, HttpStatus status) {
         return ResponseEntity.status(status)
                 .body(new ApiResponse<>(false, message, null));
     }
 
     // Standard not found response
-    // Replaces: abort(404)
+    // Replaces: <cfheader statuscode="404">
     protected ResponseEntity<ApiResponse<Void>> notFound(String message) {
         return error(message, HttpStatus.NOT_FOUND);
     }
@@ -248,7 +249,7 @@ record ApiResponse<T>(boolean success, String message, T data) {}
 
 // =============================================================================
 // Global Exception Handler
-// Replaces: app/Exceptions/Handler.php
+// Replaces: onError() in Application.cfc / <cftry><cfcatch> + error templates
 //
 // Place in: exception/GlobalExceptionHandler.java
 // =============================================================================
@@ -268,14 +269,14 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Replaces: Handler::render() for ModelNotFoundException
+    // Replaces onError() handling for a missing record
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(ResourceNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("success", false, "message", ex.getMessage()));
     }
 
-    // Replaces: Handler::render() for ValidationException
+    // Replaces manual validation error handling (isValid()/<cfif> blocks + error struct)
     // Converts @Valid errors to a structured response
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
@@ -289,7 +290,7 @@ public class GlobalExceptionHandler {
                 .body(Map.of("success", false, "message", "Validation failed", "errors", errors));
     }
 
-    // Catch-all for unhandled exceptions
+    // Catch-all for unhandled exceptions (replaces the global onError() fallback)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneral(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

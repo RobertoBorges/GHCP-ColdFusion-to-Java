@@ -1,152 +1,199 @@
 ---
-name: php-to-java-mapping
-description: PHP to Java 21 / Spring Boot 3.x code mapping reference. Use when converting PHP code patterns to Java equivalents including framework mapping, authentication, templates (Blade to Thymeleaf), packages (Composer to Maven/Gradle), and validation rules.
+name: coldfusion-to-java-mapping
+description: ColdFusion (CFML) to Java 21 / Spring Boot 3.x code mapping reference. Use when converting ColdFusion code patterns to Java equivalents including framework mapping, authentication, templates (CFML/CFOutput to Thymeleaf), packages (built-in CF tags to Maven/Gradle libraries), and validation rules.
 ---
 
-# PHP to Java 21 / Spring Boot 3 Mapping Reference
+# ColdFusion (CFML) to Java 21 / Spring Boot 3 Mapping Reference
 
-> Use this skill when migrating PHP code to Java 21 with Spring Boot 3.x. It provides direct mappings for common patterns.
+> Use this skill when migrating ColdFusion code to Java 21 with Spring Boot 3.x. It provides direct
+> mappings for common CFML patterns. It covers Adobe ColdFusion, Lucee, and legacy Railo/BlueDragon
+> engines, and both tag-based CFML and `cfscript` syntax, including legacy `Application.cfm`-style apps.
 
 ## Framework Mapping
 
-| PHP Framework | Java Equivalent |
-|---------------|-----------------|
-| Laravel | Spring Boot MVC |
-| Symfony | Spring Framework (Spring MVC) |
-| CodeIgniter | Spring Boot (lightweight REST) |
-| Slim | Spring Boot REST Controllers |
-| Lumen | Spring Boot REST Controllers |
+| ColdFusion Framework | Java Equivalent |
+|----------------------|-----------------|
+| Vanilla CFML (`Application.cfm` / `Application.cfc` + `.cfm` pages) | Spring Boot MVC (`@Controller` + Thymeleaf) |
+| FW/1 (Framework One) | Spring Boot MVC |
+| ColdBox (HMVC) | Spring Boot MVC (WireBox → Spring DI, interceptors → filters/AOP) |
+| Fusebox | Spring Boot MVC |
+| Mach-II | Spring Boot MVC (event-driven → controllers) |
+| Model-Glue | Spring Boot MVC |
+| CFWheels | Spring Boot MVC |
+| Taffy / ColdBox REST | Spring Boot REST (`@RestController`) |
 
 ## Architecture Pattern Mapping
 
-| PHP Pattern | Java Equivalent |
-|-------------|-----------------|
-| MVC (Laravel/Symfony) | Spring MVC (`@Controller` + Thymeleaf) |
-| API-only (Slim/Lumen) | Spring Boot REST (`@RestController`) |
-| Blade/Twig templates | Thymeleaf templates |
-| LiveWire | Vaadin (or SPA frontend with Spring REST backend) |
+| CFML Pattern | Java Equivalent |
+|--------------|-----------------|
+| CFC (`.cfc` component) | Java class (`@Service` / `@Component` / entity, depending on role) |
+| `.cfm` page (controller + view combined) | `@Controller` method + Thymeleaf template (separate concerns) |
+| `<cffunction>` / `cfscript` `function` | Java method |
+| Application-scope singleton CFC (`application.userService = createObject(...)`) | Spring singleton `@Service` bean |
+| `Application.cfc` lifecycle methods | Spring lifecycle + filters/interceptors/listeners (see table below) |
+| Custom tags (`<cf_tag>` / `<cfmodule>`) | Thymeleaf fragments or tag/dialect helpers |
+| UDFs in `includes/udf.cfm` | Utility classes / `@Component` helper beans |
+
+## Application.cfc Lifecycle Mapping
+
+| CFML (`Application.cfc` / `Application.cfm`) | Java / Spring |
+|----------------------------------------------|----------------|
+| `onApplicationStart()` | `@PostConstruct` bean / `ApplicationRunner` / `CommandLineRunner` |
+| `onSessionStart()` | `HttpSessionListener.sessionCreated()` |
+| `onRequestStart()` | `Filter` / `HandlerInterceptor.preHandle()` |
+| `onRequest()` | Handled by `DispatcherServlet` (framework-managed) |
+| `onRequestEnd()` | `HandlerInterceptor.afterCompletion()` |
+| `onError()` | `@ControllerAdvice` + `@ExceptionHandler` |
+| `onMissingTemplate()` | Custom `ErrorController` / 404 handler |
+| `this.*` settings (name, sessionManagement, datasource) | `application.yml` + config classes |
 
 ## Data Access Mapping
 
-| PHP | Java |
-|-----|------|
-| Eloquent ORM | JPA / Hibernate (via Spring Data JPA) |
-| Doctrine ORM | JPA / Hibernate |
-| PDO | JDBC / Spring JdbcTemplate |
-| Query Builder | JPQL / Criteria API |
-| Raw SQL | Native `@Query` or JdbcTemplate |
-| Migrations (Artisan) | Flyway or Liquibase |
+| ColdFusion | Java |
+|------------|------|
+| `<cfquery>` / `queryExecute()` | Spring Data JPA repositories or `JdbcTemplate` |
+| `<cfqueryparam>` | Bind parameters (`?`/named params) in JPA/JdbcTemplate — always parameterize |
+| `<cfstoredproc>` / `<cfprocparam>` | `@Procedure` (Spring Data) or `JdbcTemplate.call()` |
+| DataMgr (ORM abstraction) | Spring Data JPA / Hibernate |
+| CF-ORM (`persistent="true"` CFC + `cfproperty`) | JPA `@Entity` + mapped fields |
+| Query of Queries (QoQ) | Java Streams over result lists, or SQL |
+| `queryNew()` / query manipulation | `List<Map>` / `List<Record>` / DTO lists |
+| CF Admin datasource | `spring.datasource.*` in `application.yml` |
+| Manual `.sql` scripts / schema | Flyway or Liquibase migrations |
 
 ## Authentication Mapping
 
-| PHP | Java |
-|-----|------|
-| Laravel Auth | Spring Security (form login) |
-| Laravel Sanctum | JWT via jjwt / java-jwt |
-| Laravel Passport | Spring Security OAuth2 Resource Server |
-| PHP Sessions | Spring Session (HttpSession) |
-| tymon/jwt-auth | `io.jsonwebtoken:jjwt-api` |
-| Socialite | Spring Security OAuth2 Client |
+| ColdFusion | Java |
+|------------|------|
+| `<cflogin>` / `<cfloginuser>` | Spring Security form login + `AuthenticationManager` |
+| `<cflogout>` | Spring Security logout handler |
+| `isUserLoggedIn()` | `Authentication.isAuthenticated()` / `sec:authorize="isAuthenticated()"` |
+| `isUserInRole("admin")` | `hasRole('ADMIN')` / `@PreAuthorize("hasRole('ADMIN')")` |
+| `getAuthUser()` | `SecurityContextHolder` / `@AuthenticationPrincipal` |
+| `session.user` struct | Spring Security principal + `HttpSession` |
+| Persistent-login cookie (encrypted) | Spring Security remember-me token |
+| `cfloginuser ... roles="user,admin"` | `GrantedAuthority` list from `UserDetailsService` |
+| Hash/encrypt password (`hash()`, `bcrypt`) | `BCryptPasswordEncoder` |
 | Entra ID (Azure AD) | Spring Security + MSAL4J / `spring-cloud-azure-starter-active-directory` |
 
-## Dependency Injection
+## Dependency Injection & Scopes
 
-| PHP | Java |
-|-----|------|
-| Laravel Container | Spring ApplicationContext (built-in IoC) |
-| Symfony DI | Spring ApplicationContext |
-| Service Providers | `@Configuration` classes with `@Bean` methods |
-| Facades | Injected `@Service` / `@Component` beans |
-| `app()->make(SomeClass::class)` | `@Autowired` or constructor injection |
+| ColdFusion | Java |
+|------------|------|
+| `createObject("component","cfcs.user").init()` / `new cfcs.user()` | Spring bean + constructor injection / `@Autowired` |
+| Application-scope CFC singletons | Spring singleton beans (default scope) |
+| ColdBox WireBox / DI/1 | Spring `ApplicationContext` (built-in IoC) |
+| `application` scope | Spring singleton beans / `@Configuration` state |
+| `session` scope | `HttpSession` / `@SessionScope` beans |
+| `request` scope | Request attributes / `@RequestScope` beans |
+| `server` scope | Application-wide singletons / static config |
+| `variables` scope (CFC instance) | Instance fields (keep singletons stateless & thread-safe) |
+| `client` / `cookie` scope | Cookies / persistent store (DB, Redis) |
 
-## Template Syntax Mapping (Blade → Thymeleaf)
+## Template Syntax Mapping (CFML → Thymeleaf)
 
-| Blade (PHP) | Thymeleaf (Java) |
-|-------------|-------------------|
-| `{{ $var }}` | `th:text="${var}"` |
-| `{!! $html !!}` | `th:utext="${html}"` |
-| `@if($cond)` | `th:if="${cond}"` |
-| `@unless($cond)` | `th:unless="${cond}"` |
-| `@foreach($items as $item)` | `th:each="item : ${items}"` |
-| `@for($i=0; $i<10; $i++)` | `th:each="i : ${#numbers.sequence(0,9)}"` |
-| `@extends('layout')` | `layout:decorate="~{layout}"` (Thymeleaf Layout Dialect) |
-| `@section('content')` | `layout:fragment="content"` |
-| `@yield('content')` | `layout:fragment="content"` (in layout) |
-| `@include('partial')` | `th:insert="~{fragments/partial}"` |
-| `@csrf` | Automatic with Thymeleaf + Spring Security (`th:action`) |
-| `@auth` | `sec:authorize="isAuthenticated()"` (Thymeleaf Spring Security) |
-| `{{ route('name') }}` | `th:href="@{/path}"` or `@{/controller/action}` |
-| `@component` | Thymeleaf fragment with parameters |
-| `{{ $loop->index }}` | `${iterStat.index}` (with `th:each="item, iterStat"`) |
-| `@empty` | `th:if="${#lists.isEmpty(items)}"` |
-| `@switch / @case` | `th:switch="${var}"` / `th:case="'value'"` |
+| CFML | Thymeleaf (Java) |
+|------|------------------|
+| `<cfoutput>#var#</cfoutput>` | `th:text="${var}"` (escaped) |
+| `#encodeForHTML(var)#` | `th:text="${var}"` (Thymeleaf escapes by default) |
+| `#var#` raw HTML output | `th:utext="${var}"` (unescaped — use with care) |
+| `<cfif cond>` … `</cfif>` | `th:if="${cond}"` |
+| `<cfelse>` | second element with `th:unless` / `th:if`, or `th:switch` |
+| `<cfloop query="q">` | `th:each="row : ${q}"` |
+| `<cfloop array="#items#" index="i">` | `th:each="i : ${items}"` |
+| `<cfloop from="1" to="10" index="i">` | `th:each="i : ${#numbers.sequence(1,10)}"` |
+| `<cfinclude template="header.cfm">` | `th:insert="~{fragments/header}"` / `th:replace` |
+| Custom tag `<cf_widget>` / `<cfmodule template="...">` | Thymeleaf fragment with parameters |
+| `<cfset x = ...>` (in view) | Move to controller/service; expose via `Model` |
+| `<cfform>` / `<cfinput>` | Thymeleaf `<form th:action th:object>` + Spring binding |
+| `<cfsavecontent variable="x">` | Assemble in controller or use fragment |
+| `##` (escaped hash) | literal `#` |
+| `writeOutput()` / `<cfoutput>` in `.cfm` | `Model.addAttribute()` + Thymeleaf expression |
+| `URLEncodedFormat()` | `th:href="@{/path(param=${v})}"` |
+| `<cfloop list="#csv#" index="i">` | split to `List` in controller, `th:each` |
 
-## Package Mapping (Composer → Maven/Gradle)
+## Package / Built-in Tag Mapping (CFML → Maven/Gradle)
 
-| Composer Package | Maven/Gradle Dependency |
-|-----------------|--------------------------|
-| `guzzlehttp/guzzle` | `java.net.http.HttpClient` (built-in JDK 11+) or `org.springframework.boot:spring-boot-starter-webflux` (WebClient) |
-| `stripe/stripe-php` | `com.stripe:stripe-java` |
-| `intervention/image` | `net.coobird:thumbnailator` or `org.imgscalr:imgscalr-lib` |
-| `tymon/jwt-auth` | `io.jsonwebtoken:jjwt-api` + `jjwt-impl` + `jjwt-jackson` |
-| `predis/predis` | `org.springframework.boot:spring-boot-starter-data-redis` |
-| `aws/aws-sdk-php` | `software.amazon.awssdk:bom` (AWS SDK v2) |
-| `league/flysystem` | `software.amazon.awssdk:s3` or `com.azure:azure-storage-blob` |
-| `phpmailer/phpmailer` | `org.springframework.boot:spring-boot-starter-mail` (JavaMailSender) |
-| `monolog/monolog` | SLF4J + Logback (built-in with Spring Boot) |
-| `nesbot/carbon` | `java.time.LocalDateTime` / `ZonedDateTime` (built-in JDK 8+) |
-| `league/csv` | Apache Commons CSV (`org.apache.commons:commons-csv`) |
-| `spatie/laravel-permission` | Spring Security roles/authorities |
-| `laravel/telescope` | Spring Boot Actuator + Micrometer |
-| `barryvdh/laravel-debugbar` | Spring Boot DevTools |
+| ColdFusion tag/feature | Maven/Gradle Dependency (Java) |
+|------------------------|--------------------------------|
+| `<cfmail>` / `cfmailpart` | `org.springframework.boot:spring-boot-starter-mail` (`JavaMailSender`) |
+| `<cfhttp>` | `java.net.http.HttpClient` (JDK 11+) or Spring `WebClient` / `RestTemplate` |
+| `<cffile>` / `<cfdirectory>` | `java.nio.file.Files` / Spring `Resource` |
+| `<cfdocument>` / `<cfpdf>` | OpenPDF, Flying Saucer, or `com.itextpdf` |
+| `<cfspreadsheet>` | Apache POI (`org.apache.poi:poi-ooxml`) |
+| `<cfchart>` | JFreeChart, or a front-end charting library |
+| `<cfimage>` / `imageResize()` | `net.coobird:thumbnailator` or `org.imgscalr:imgscalr-lib` |
+| `<cfldap>` | `org.springframework.ldap:spring-ldap-core` |
+| `<cfftp>` | `commons-net:commons-net` |
+| `<cfzip>` | `java.util.zip` (JDK built-in) |
+| `<cfthread>` | `@Async` + `ThreadPoolTaskExecutor` / `CompletableFuture` |
+| `<cfschedule>` / scheduled tasks | `@Scheduled` (cron expressions) |
+| `<cfcache>` / `cachePut()` / `cacheGet()` | Spring Cache abstraction (`@Cacheable`, Caffeine/Redis) |
+| `serializeJSON()` / `deserializeJSON()` | Jackson `ObjectMapper` (built-in with Spring Boot) |
+| `<cfwddx>` / XML (`xmlParse()`) | Jackson XML / JAXB |
+| `createObject("java", "…")` / JavaLoader | Native Java — add the JAR as a Maven/Gradle dependency |
+| CFX custom tags (C++/Java) | Native Java component / library |
+| Event Gateways (Adobe CF) | Spring Integration / message listeners (JMS, Service Bus) |
+| `<cfhtmltopdf>` | Flying Saucer / headless Chrome (Playwright) |
 
 ## Configuration Mapping
 
-| PHP | Java |
-|-----|------|
-| `.env` files | `application.yml` / `application.properties` + Environment Variables |
-| `config/*.php` | `@ConfigurationProperties` classes |
-| `env('KEY')` | `@Value("${key}")` or `Environment.getProperty("key")` |
-| `config('app.name')` | `@Value("${app.name}")` or injected `@ConfigurationProperties` bean |
-| `config/database.php` | `spring.datasource.*` in `application.yml` |
-| `config/cache.php` | `spring.cache.*` in `application.yml` |
-| `config/mail.php` | `spring.mail.*` in `application.yml` |
+| ColdFusion | Java |
+|------------|------|
+| `Application.cfc` `this.*` settings | `application.yml` / `application.properties` |
+| `settings.ini` / config CFC (`getSettings()`) | `@ConfigurationProperties` classes + `application.yml` |
+| CF Administrator datasource | `spring.datasource.*` |
+| `this.datasource` | `spring.datasource` (single) / multiple `DataSource` beans |
+| `this.mappings` (per-app mappings) | Java package structure / classpath |
+| `this.sessionManagement` / `this.sessionTimeout` | Spring Session + `server.servlet.session.timeout` |
+| `this.name` (application name) | `spring.application.name` |
+| environment via `cgi.server_name` switch | Spring profiles (`application-{profile}.yml`) |
 
-## Background Jobs Mapping
+## Background Jobs & Async Mapping
 
-| PHP | Java |
-|-----|------|
-| Laravel Queues (database driver) | `@Async` + `ThreadPoolTaskExecutor` |
-| Laravel Queues (Redis/SQS) | Spring AMQP (RabbitMQ) or Spring Kafka |
-| Symfony Messenger | Spring AMQP or Spring Integration |
-| Laravel Scheduler | `@Scheduled` with cron expressions |
-| Artisan commands | Spring Boot CLI (`CommandLineRunner` / `ApplicationRunner`) |
-| Laravel Horizon | Spring Boot Actuator + custom queue monitoring |
-| Job chaining | Spring Batch |
+| ColdFusion | Java |
+|------------|------|
+| `<cfschedule>` / scheduled tasks | `@Scheduled(cron = "...")` |
+| `<cfthread action="run">` | `@Async` methods returning `void` / `CompletableFuture` |
+| `cfthread` join / `threadJoin()` | `CompletableFuture.allOf(...).join()` |
+| Event Gateways | Spring AMQP (RabbitMQ) / Azure Service Bus / Spring Kafka |
+| Async CFCs via gateways | `@Async` + message listeners |
+| Scheduled `.cfm` via CF Admin | `@Scheduled` beans or external scheduler |
 
 ## Validation Mapping
 
-| Laravel Validation | Java (Jakarta Bean Validation) |
-|-------------------|-------------------------------|
-| `required` | `@NotNull` / `@NotBlank` (for strings) |
-| `email` | `@Email` |
-| `max:100` | `@Size(max = 100)` (string) / `@Max(100)` (number) |
-| `min:1` | `@Size(min = 1)` (string) / `@Min(1)` (number) |
-| `between:1,100` | `@Size(min = 1, max = 100)` or `@Range(min = 1, max = 100)` (Hibernate) |
-| `numeric` | Use numeric type (`Integer`, `Long`, `BigDecimal`) |
-| `string` | Use `String` type |
-| `unique:table` | Custom validator with repository check |
-| `confirmed` | Custom `@FieldMatch` validator |
-| `regex:/pattern/` | `@Pattern(regexp = "pattern")` |
-| `date` | `@PastOrPresent` / `@FutureOrPresent` with `LocalDate` type |
-| `in:a,b,c` | Use Java `enum` type |
-| `nullable` | Omit `@NotNull` (fields are nullable by default in Java) |
-| `url` | `@URL` (Hibernate Validator) |
-| Form Requests | `@Valid` on DTO parameter + validation annotations on DTO fields |
+| CFML validation | Java (Jakarta Bean Validation) |
+|-----------------|--------------------------------|
+| `<cfparam name="x" type="string">` | Typed field + `@NotNull` where required |
+| `<cfparam name="x" default="">` | Default value in DTO / `@RequestParam(defaultValue)` |
+| `isValid("email", x)` | `@Email` |
+| `isValid("integer", x)` / `isNumeric(x)` | Use `Integer` / `Long` / `BigDecimal` types |
+| `isValid("range", x, 1, 100)` | `@Min(1) @Max(100)` / `@Range` (Hibernate) |
+| `isValid("regex", x, pattern)` | `@Pattern(regexp = "...")` |
+| `isValid("date", x)` / `isDate(x)` | `LocalDate` / `LocalDateTime` type + `@Past`/`@Future` |
+| `len(trim(x)) EQ 0` required check | `@NotBlank` |
+| `isValid("url", x)` | `@URL` (Hibernate Validator) |
+| `listFind("a,b,c", x)` | Java `enum` type |
+| Uniqueness check via `<cfquery>` | Custom validator + repository lookup |
+| Manual `<cfif>` validation blocks | `@Valid` on DTO + annotations, `BindingResult` |
+
+## Data Type Mapping (typeless CFML → typed Java)
+
+| CFML value | Java |
+|------------|------|
+| String / numeric variable (typeless) | `String` / `Integer` / `Long` / `BigDecimal` (declare explicit types) |
+| Boolean (`true`/`false`/`yes`/`no`/`1`/`0`) | `boolean` / `Boolean` |
+| Date/time (`now()`, `createDate()`) | `LocalDate` / `LocalDateTime` / `ZonedDateTime` |
+| Struct (`{}` / `structNew()`) | `Map<String,Object>`, or a typed `record` / POJO |
+| Array (`[]` / `arrayNew()`) | `List<T>` |
+| Query object (result of `<cfquery>`) | `List<Entity>` / `List<Map<String,Object>>` |
+| List (comma-delimited string) | `List<String>` (split) |
+| `numberFormat()` / `dollarFormat()` | `NumberFormat` / `DecimalFormat` |
+| `dateFormat()` / `timeFormat()` | `DateTimeFormatter` |
 
 ## Code Examples
 
 See the [examples](./examples/) directory for sample conversions:
-- [Controller example](./examples/controller-example.java) - PHP controller to Spring Boot controller
-- [Service example](./examples/service-example.java) - PHP service to Spring Boot service
-- [Model example](./examples/model-example.java) - Eloquent model to JPA entity
+- [Controller example](./examples/controller-example.java) - CFML `.cfm` page / CFC handler to Spring Boot controller
+- [Service example](./examples/service-example.java) - Application-scope CFC service to Spring Boot service
+- [Model example](./examples/model-example.java) - CFC / DataMgr / CF-ORM to JPA entity

@@ -1,14 +1,14 @@
 ---
 agent: agent
-model: Claude Sonnet 4.5 (copilot)
-tools: ['search/codebase', 'search/usages', 'vscode/vscodeAPI', 'read/problems', 'search/changes', 'execute/testFailure', 'vscode/runCommand', 'read/terminalLastCommand', 'vscode/openSimpleBrowser', 'web/fetch', 'search/searchResults', 'web/githubRepo', 'vscode/extensions', 'execute/runTests', 'edit/editFiles', 'search', 'azure-mcp/*']
+model: Claude Sonnet 5 (copilot)
+tools: [vscode, execute, read, browser, edit, search, web, azure/search]
 ---
 
 # Phase 1: Technical Assessment & Migration Preferences
 
 ## Objective
 
-Perform technical assessment of the PHP application and gather user preferences for the Java / Spring Boot migration. This phase bridges understanding (Phase 0) with detailed planning (Phase 2).
+Perform technical assessment of the ColdFusion (CFML) application and gather user preferences for the Java / Spring Boot migration. This phase bridges understanding (Phase 0) with detailed planning (Phase 2).
 
 **Prerequisites**: Phase 0 must be completed with `Application-Discovery-Report.md` available.
 
@@ -31,9 +31,10 @@ read_file: reports/Application-Discovery-Report.md
 ```
 
 Confirm you understand:
-- [ ] PHP framework and version
+- [ ] CFML engine (Adobe ColdFusion / Lucee / Railo) and version
+- [ ] Framework (vanilla Application.cfc/.cfm, ColdBox, FW/1, Fusebox, etc.)
 - [ ] Application type and purpose
-- [ ] Component inventory (controllers, models, services, views)
+- [ ] Component inventory (handlers/pages, components/models, services, views)
 - [ ] Business logic locations
 - [ ] External integrations
 - [ ] Database schema
@@ -48,18 +49,18 @@ Confirm you understand:
 
 Ask: **"Which Java / Spring Boot architecture pattern do you want to use for the migrated application?"**
 
-| Pattern | Best For | PHP Equivalent |
-|---------|----------|----------------|
-| **Spring Boot MVC** | Full web apps with server-side rendering | Laravel/Symfony with Blade/Twig |
-| **Spring Boot REST API + SPA** | API-first with React/Vue/Angular frontend | Laravel API + Vue/React |
-| **Vaadin** | Interactive web apps, real-time updates | LiveWire |
-| **Spring Boot REST (lightweight)** | Simple microservices, simple APIs | Slim PHP, Lumen |
-| **Quarkus** | Cloud-native microservices | Not common in PHP |
+| Pattern | Best For | ColdFusion (CFML) Equivalent |
+|---------|----------|------------------------------|
+| **Spring Boot MVC** | Full web apps with server-side rendering | Vanilla `.cfm` + custom tags; ColdBox / FW/1 with `.cfm` views |
+| **Spring Boot REST API + SPA** | API-first with React/Vue/Angular frontend | ColdBox REST / Taffy + Vue/React |
+| **Vaadin** | Interactive web apps, real-time updates | AJAX-heavy `.cfm` (`<cfajaxproxy>`, `<cfform>`, `<cflayout>`) |
+| **Spring Boot REST (lightweight)** | Simple microservices, simple APIs | Taffy, remote `.cfc` methods |
+| **Quarkus** | Cloud-native microservices | Not common in CFML |
 
-**Recommendation based on PHP source:**
-- Laravel/Symfony with Blade/Twig → **Spring Boot MVC with Thymeleaf**
-- Laravel API + Vue/React → **Spring Boot REST API** (keep existing frontend)
-- Simple REST API → **Spring Boot REST (lightweight)**
+**Recommendation based on ColdFusion source:**
+- Vanilla `.cfm` / ColdBox / FW/1 with server-rendered views → **Spring Boot MVC with Thymeleaf**
+- ColdBox REST / Taffy API + Vue/React → **Spring Boot REST API** (keep existing frontend)
+- Simple remote `.cfc` API → **Spring Boot REST (lightweight)**
 
 ### 2.2 Frontend Migration Strategy
 
@@ -67,7 +68,7 @@ Ask: **"How do you want to handle the frontend/UI?"**
 
 | Option | Description | When to Use |
 |--------|-------------|-------------|
-| **Migrate to Thymeleaf templates** | Convert Blade/Twig to Thymeleaf | Full migration, similar UI patterns |
+| **Migrate to Thymeleaf templates** | Convert `.cfm` / `<cfoutput>` / custom tags to Thymeleaf | Full migration, similar UI patterns |
 | **Migrate to Vaadin** | Convert to Vaadin components | Want Java on frontend, modern SPA feel |
 | **Keep Existing Frontend** | Keep Vue/React/Angular, API only | Already have JS framework, minimize changes |
 | **Rebuild with New Framework** | New React/Vue/Angular frontend | Want modern SPA, willing to rebuild |
@@ -76,26 +77,26 @@ Ask: **"How do you want to handle the frontend/UI?"**
 
 Ask: **"Which data access approach do you prefer?"**
 
-| Option | Best For | PHP Equivalent |
-|--------|----------|----------------|
-| **JPA / Hibernate (via Spring Data JPA)** | Full ORM, migrations, relationships | Eloquent, Doctrine |
-| **MyBatis** | Performance-critical, raw SQL control | PDO with manual queries |
-| **Spring Data JDBC** | Lightweight, no lazy loading | Simple data access |
-| **JPA + MyBatis** | ORM for CRUD, MyBatis for complex queries | Mixed approach |
+| Option | Best For | ColdFusion (CFML) Equivalent |
+|--------|----------|------------------------------|
+| **JPA / Hibernate (via Spring Data JPA)** | Full ORM, migrations, relationships | CF-ORM (`persistent="true"`), DataMgr |
+| **MyBatis** | Performance-critical, raw SQL control | `<cfquery>` / `<cfqueryparam>` with hand-written SQL |
+| **Spring Data JDBC** | Lightweight, no lazy loading | Simple `<cfquery>` data access |
+| **JPA + MyBatis** | ORM for CRUD, MyBatis for complex queries | Mixed CF-ORM + `<cfquery>` approach |
 
-**Note**: If PHP uses Eloquent or Doctrine, **JPA / Hibernate** is the natural choice for similar patterns.
+**Note**: If ColdFusion uses CF-ORM or DataMgr, **JPA / Hibernate** is the natural choice for similar patterns. Heavy `<cfquery>`/Query-of-Queries codebases may map more cleanly to **MyBatis** or **Spring Data JDBC**.
 
 ### 2.4 Authentication Strategy
 
 Ask: **"What authentication approach do you want?"**
 
-| Option | Best For | PHP Equivalent |
-|--------|----------|----------------|
-| **Spring Security** | Built-in user management, local accounts | Laravel Auth, Symfony Security |
-| **Spring Security + MSAL4J (Entra ID)** | Enterprise SSO, cloud-first | Azure AD integration |
-| **Spring Security + Keycloak** | External identity provider, SSO | Hybrid approach |
-| **JWT (jjwt / spring-boot-starter-oauth2-resource-server)** | Stateless API authentication | tymon/jwt-auth, passport |
-| **OAuth2/OIDC (Spring Security OAuth2)** | Third-party providers (Google, GitHub) | Socialite, oauth2-client |
+| Option | Best For | ColdFusion (CFML) Equivalent |
+|--------|----------|------------------------------|
+| **Spring Security** | Built-in user management, local accounts | `<cflogin>` / `<cfloginuser>` / `isUserInRole()` + session |
+| **Spring Security + MSAL4J (Entra ID)** | Enterprise SSO, cloud-first | Azure AD / NTLM / SSO integration |
+| **Spring Security + Keycloak** | External identity provider, SSO | Hybrid / third-party SSO |
+| **JWT (jjwt / spring-boot-starter-oauth2-resource-server)** | Stateless API authentication | Token stored in session/scope, manual token checks |
+| **OAuth2/OIDC (Spring Security OAuth2)** | Third-party providers (Google, GitHub) | `<cfoauth>`, custom OAuth `<cfhttp>` flows |
 
 ### 2.5 Azure Hosting Platform
 
@@ -125,14 +126,16 @@ Ask: **"Which Infrastructure as Code (IaC) tool do you prefer?"**
 
 Ask: **"What's your database strategy?"**
 
+Most ColdFusion applications run on **MySQL** or **Microsoft SQL Server**. Confirm the current engine (from the Phase 0 datasource discovery) and choose the target:
+
 | Current DB | Recommended Azure Service | Notes |
 |------------|--------------------------|-------|
-| MySQL | **Azure Database for MySQL** or **Azure SQL** | Flexible Server recommended |
+| MySQL | **Azure Database for MySQL** | Flexible Server recommended (common CFML default) |
+| Microsoft SQL Server | **Azure SQL Database** | Direct, lift-and-shift friendly |
 | PostgreSQL | **Azure Database for PostgreSQL** | Flexible Server recommended |
-| MariaDB | **Azure Database for MySQL** | Compatible |
-| SQLite | **Azure SQL Database** | Requires migration |
-| MongoDB | **Azure Cosmos DB** | MongoDB API compatible |
-| Redis | **Azure Cache for Redis** | Direct compatibility |
+| Oracle | **Azure Database for PostgreSQL** or **Oracle on Azure** | May require SQL rewrites |
+| Access / other | **Azure SQL Database** | Requires migration |
+| Redis / `<cfcache>` | **Azure Cache for Redis** | Replaces in-process CF cache |
 
 ---
 
@@ -160,60 +163,72 @@ Please confirm these choices are correct (yes/no):
 
 ## Step 4: Technical Risk Assessment
 
-### 4.1 PHP-Specific Migration Risks
+### 4.1 ColdFusion-Specific Migration Risks
 
-Analyze the discovered PHP patterns for migration complexity:
+Analyze the discovered CFML patterns for migration complexity:
 
-| PHP Pattern | Risk Level | Migration Challenge | Mitigation |
-|-------------|------------|---------------------|------------|
-| **Magic methods** (`__get`, `__set`, `__call`) | 🟠 High | No direct equivalent | Explicit getters/setters, interfaces |
-| **Dynamic typing** | 🟡 Medium | Java is strongly typed | Define explicit types |
-| **Anonymous classes** | 🟡 Medium | Different syntax | Named classes or records (Java 17+) |
-| **Traits** | 🟡 Medium | No direct equivalent | Interfaces + default methods |
-| **Late static binding** | 🟠 High | Complex to replicate | Redesign with interfaces |
-| **Variable variables** (`$$var`) | 🔴 Critical | Not supported | Map or refactor |
-| **eval()** | 🔴 Critical | Security risk, not portable | Refactor to eliminate |
-| **Global state** | 🟠 High | Against Spring patterns | Dependency injection |
+| CFML Pattern | Risk Level | Migration Challenge | Mitigation |
+|--------------|------------|---------------------|------------|
+| **Loose / dynamic typing** (`var x = ...`, untyped args) | 🟡 Medium | Java is strongly typed | Define explicit types |
+| **Untyped structs & queries passed around** | 🟠 High | No implicit dynamic shapes in Java | Explicit DTOs / Java records |
+| **Inline `<cfquery>` in `.cfm` views** | 🟠 High | SQL mixed with presentation | Move to repositories / services |
+| **Missing `<cfqueryparam>`** | 🔴 Critical | SQL injection risk | Parameterize via JPA / prepared statements |
+| **`application` / `session` / `server` scope global state** | 🟠 High | Against Spring patterns | Dependency injection, request/session beans |
+| **`createObject("java",...)` / JavaLoader interop** | 🟡 Medium | Classpath & lib management | Native Java deps via Maven/Gradle |
+| **Custom tags** (`<cf_x>`, `<cfmodule>`, `<cfimport>`) | 🟠 High | No direct equivalent | Thymeleaf fragments / custom dialects |
+| **`evaluate()` / `iif()` / `de()` dynamic evaluation** | 🔴 Critical | Not portable, security risk | Refactor to eliminate |
+| **`<cfinclude>` spaghetti with shared `variables` scope** | 🟠 High | Implicit shared state | Refactor to methods / services |
+| **`<cflock>` around shared scope** | 🟡 Medium | Different concurrency model | Proper Java concurrency / immutability |
+| **Query-of-Queries** | 🟡 Medium | No in-DB QoQ | In-memory Streams or SQL |
+| **Mixed tag + `<cfscript>` styles** | 🟡 Medium | Inconsistent structure | Normalize to idiomatic Java |
+| **`onError` / `<cferror>` + `<cftry>/<cfcatch>`** | 🟢 Low | Different error model | `@ControllerAdvice` + exceptions |
 
 ### 4.2 Framework-Specific Risks
 
-**Laravel → Spring Boot:**
-| Laravel Feature | Risk | Java Equivalent | Notes |
-|-----------------|------|-----------------|-------|
-| Eloquent ORM | 🟢 Low | JPA / Hibernate (Spring Data JPA) | Similar patterns |
-| Blade templates | 🟢 Low | Thymeleaf templates | Similar syntax concepts |
-| Artisan commands | 🟢 Low | Spring Boot CLI / custom commands | Similar approach |
-| Laravel Mix | 🟢 Low | Vite/Webpack | Standard bundling |
-| Service Container | 🟢 Low | Spring IoC Container | Native support |
-| Middleware | 🟢 Low | Spring Filters / Interceptors | Similar concept |
-| Facades | 🟠 High | @Service + DI | Requires refactoring |
-| Collections | 🟡 Medium | Java Streams API | Different syntax |
-| Carbon dates | 🟢 Low | java.time (LocalDateTime, ZonedDateTime) | Direct mapping |
-| Laravel Events | 🟡 Medium | Spring Events / ApplicationEventPublisher | Needs implementation |
-| Queues | 🟡 Medium | Azure Service Bus + @Async / Spring AMQP | Architecture change |
+**Vanilla CFML (Application.cfc / Application.cfm) → Spring Boot:**
+| CFML Feature | Risk | Java Equivalent | Notes |
+|--------------|------|-----------------|-------|
+| `Application.cfc` lifecycle (`onApplicationStart`, `onRequestStart`, `onError`) | 🟡 Medium | `@PostConstruct` / `ApplicationRunner`, Filters/Interceptors, `@ControllerAdvice` | Map each hook explicitly |
+| App-scope singleton CFCs | 🟢 Low | Spring singleton beans | Native support |
+| `<cflogin>` / `<cfloginuser>` / `isUserInRole()` | 🟡 Medium | Spring Security | Different implementation |
+| `<cfquery>` / `<cfqueryparam>` | 🟢 Low | Spring Data JPA / JdbcTemplate | Parameterize |
+| `.cfm` pages as controller + view | 🟠 High | `@Controller` + Thymeleaf | Separate concerns |
+| Custom tags (`<cf_x>` / `<cfmodule>`) | 🟠 High | Thymeleaf fragments | Requires refactoring |
+| `settings.ini.cfm` / CF Admin datasources | 🟢 Low | `application.yml` + `@ConfigurationProperties` | Externalize config |
 
-**Symfony → Spring Boot:**
-| Symfony Feature | Risk | Java Equivalent | Notes |
+**ColdBox → Spring Boot:**
+| ColdBox Feature | Risk | Java Equivalent | Notes |
 |-----------------|------|-----------------|-------|
-| Doctrine ORM | 🟢 Low | JPA / Hibernate (Spring Data JPA) | Similar patterns |
-| Twig templates | 🟡 Medium | Thymeleaf templates | Different syntax |
-| Console commands | 🟢 Low | Spring Boot CLI / custom commands | Similar approach |
-| Dependency Injection | 🟢 Low | Spring IoC Container | Native support |
-| Event Dispatcher | 🟡 Medium | Spring Events / ApplicationEventPublisher | Similar concept |
-| Forms | 🟠 High | Thymeleaf forms + Bean Validation | Different approach |
-| Security | 🟡 Medium | Spring Security | Different implementation |
+| Handlers | 🟢 Low | `@Controller` / `@RestController` | Similar routing concept |
+| WireBox (DI) | 🟢 Low | Spring IoC Container | Native support |
+| CBORM | 🟢 Low | JPA / Hibernate (Spring Data JPA) | Similar patterns |
+| Models / Services | 🟢 Low | `@Service` / `@Component` | Direct mapping |
+| Interceptors | 🟡 Medium | Spring Interceptors / AOP | Similar concept |
+| Layouts / Views (`.cfm`) | 🟡 Medium | Thymeleaf templates | Different syntax |
+| Modules | 🟡 Medium | Spring modules / packages | Restructure |
+
+**FW/1, Fusebox, Mach-II, Model-Glue → Spring Boot:**
+| Legacy Framework Feature | Risk | Java Equivalent | Notes |
+|--------------------------|------|-----------------|-------|
+| Convention-based controllers/services (FW/1) | 🟡 Medium | `@Controller` + `@Service` | Explicit wiring |
+| Fuseactions / circuits (Fusebox) | 🟠 High | Request mappings | Redesign routing |
+| Event listeners (Mach-II / Model-Glue) | 🟠 High | Spring MVC + Events | Redesign event flow |
+| XML-driven config | 🟡 Medium | Annotations / `application.yml` | Convert config |
 
 ### 4.3 Integration Risks
 
 Review external integrations from Phase 0:
 
-| Integration | Current Package | Java Package | Risk |
-|-------------|----------------|--------------|------|
-| Stripe | stripe/stripe-php | com.stripe:stripe-java | 🟢 Low |
-| SendGrid | sendgrid/sendgrid | com.sendgrid:sendgrid-java | 🟢 Low |
-| AWS S3 | aws/aws-sdk-php | software.amazon.awssdk:s3 | 🟢 Low |
-| Twilio | twilio/sdk | com.twilio.sdk:twilio | 🟢 Low |
-| Custom SOAP | php-soap | jakarta.xml.ws (JAX-WS) | 🟠 High |
+| Integration | Current CFML Mechanism | Java Package | Risk |
+|-------------|-----------------------|--------------|------|
+| Stripe | `<cfhttp>` to api.stripe.com | com.stripe:stripe-java | 🟢 Low |
+| Email | `<cfmail>` | Spring `JavaMailSender` | 🟢 Low |
+| File storage | `<cffile>` / `<cfftp>` | java.nio / AWS SDK for Java | 🟢 Low |
+| PDF | `<cfdocument>` / `<cfpdf>` | OpenPDF / iText | 🟡 Medium |
+| Excel | `<cfspreadsheet>` | Apache POI | 🟡 Medium |
+| SOAP web service | `<cfinvoke webservice>` / `createObject("webservice")` | jakarta.xml.ws (JAX-WS) | 🟠 High |
+| Java interop | `createObject("java",...)` / JavaLoader | Native Java (Maven/Gradle) | 🟡 Medium |
+| LDAP | `<cfldap>` | Spring LDAP | 🟡 Medium |
 
 ### 4.4 Risk Summary Matrix
 
@@ -242,10 +257,10 @@ Create `reports/Technical-Assessment-Report.md`:
 ### Source Application
 | Property | Value |
 |----------|-------|
-| PHP Version | [Version] |
-| Framework | [Laravel/Symfony/etc.] |
-| Database | [MySQL/PostgreSQL/etc.] |
-| Authentication | [Sessions/JWT/etc.] |
+| CFML Engine | [Adobe ColdFusion / Lucee / Railo — version] |
+| Framework | [Vanilla Application.cfc/.cfm / ColdBox / FW/1 / etc.] |
+| Database | [MySQL/SQL Server/PostgreSQL/etc.] |
+| Authentication | [`<cflogin>`/session/JWT/etc.] |
 
 ### Target Architecture
 | Property | Value |
@@ -262,7 +277,7 @@ Create `reports/Technical-Assessment-Report.md`:
 
 ## Architecture Diagrams
 
-### Current PHP Architecture
+### Current ColdFusion Architecture
 [Mermaid diagram from Phase 0]
 
 ### Target Java / Spring Boot Architecture
@@ -284,22 +299,22 @@ Create `reports/Technical-Assessment-Report.md`:
 
 ## Technology Mapping
 
-### PHP → Java Package Mapping
-[Table of Composer packages to Maven/Gradle equivalents]
+### ColdFusion → Java Dependency Mapping
+[Table of CFML built-in tags / Java interop / modules to Maven/Gradle equivalents]
 
 ### Code Pattern Mapping
-[Table of PHP patterns to Java patterns]
+[Table of CFML patterns to Java patterns]
 
 ## Migration Complexity Estimate
 
 | Component | Count | Complexity | Estimated Effort |
 |-----------|-------|------------|------------------|
-| Controllers | [X] | [Low/Med/High] | [X hours] |
-| Models | [X] | [Low/Med/High] | [X hours] |
+| Handlers / Pages | [X] | [Low/Med/High] | [X hours] |
+| Components / Models | [X] | [Low/Med/High] | [X hours] |
 | Services | [X] | [Low/Med/High] | [X hours] |
 | Views | [X] | [Low/Med/High] | [X hours] |
-| Middleware | [X] | [Low/Med/High] | [X hours] |
-| Jobs/Commands | [X] | [Low/Med/High] | [X hours] |
+| Lifecycle / Filters | [X] | [Low/Med/High] | [X hours] |
+| Jobs/Scheduled Tasks | [X] | [Low/Med/High] | [X hours] |
 | **Total** | - | - | **[X hours]** |
 
 ## Prerequisites for Migration
@@ -317,7 +332,7 @@ Proceed to detailed file-by-file migration planning:
 
 **Run**: `/phase2-createmigrationplan`
 
-This will create a detailed migration plan mapping every PHP file to its Java equivalent.
+This will create a detailed migration plan mapping every ColdFusion file to its Java equivalent.
 ```
 
 ---
@@ -368,7 +383,7 @@ Run `/phase2-createmigrationplan` to create detailed file-by-file migration plan
 ### Risk Assessment
 - Be thorough - missed risks cause migration failures
 - Provide mitigation strategies for all High/Critical risks
-- Flag anything that might block migration
+- Flag anything that might block migration (Java interop, custom tags, dynamic `evaluate()`)
 
 ### Report Quality
 - Use clear Markdown formatting
@@ -390,7 +405,7 @@ At the end of Phase 1, you should have:
 1. ✅ User preferences captured and confirmed
 2. ✅ `reports/Technical-Assessment-Report.md` created
 3. ✅ Risk assessment with mitigation strategies
-4. ✅ Technology mapping (PHP → Java)
+4. ✅ Technology mapping (ColdFusion → Java)
 5. ✅ Effort estimation
 6. ✅ `reports/Report-Status.md` updated
 

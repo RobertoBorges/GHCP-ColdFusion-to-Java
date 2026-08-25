@@ -1,9 +1,9 @@
 // =============================================================================
 // Spring Boot Configuration Class
-// Part of the PHP-to-Java Migration Framework
+// Part of the ColdFusion-to-Java Migration Framework
 // =============================================================================
 // Centralized application configuration with @Bean definitions.
-// Replaces Laravel's Service Providers (app/Providers/) and config/*.php files.
+// Replaces Application.cfc bootstrap wiring, config CFCs, and settings.ini.cfm.
 // =============================================================================
 
 package com.example.app.config;
@@ -25,14 +25,14 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * Main application configuration.
  *
  * Replaces:
- *   - Laravel's AppServiceProvider (general service bindings)
- *   - Laravel's config/app.php (application settings)
- *   - Laravel's config/cors.php (CORS configuration)
+ *   - Application.cfc onApplicationStart() service wiring
+ *   - settings.ini.cfm / config CFC application settings
+ *   - CORS handling done manually via <cfheader> in onRequestStart()
  *
  * @Configuration marks this as a source of @Bean definitions.
  * @EnableConfigurationProperties enables typed config binding.
- * @EnableAsync enables @Async method execution (replaces Laravel Queues for simple cases).
- * @EnableScheduling enables @Scheduled methods (replaces Laravel Scheduler).
+ * @EnableAsync enables @Async method execution (replaces <cfthread>).
+ * @EnableScheduling enables @Scheduled methods (replaces <cfschedule> / scheduled tasks).
  */
 @Configuration
 @EnableConfigurationProperties({AppProperties.class, MailProperties.class, StorageProperties.class})
@@ -41,9 +41,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class ApplicationConfig {
 
     // ==========================================================================
-    // RestTemplate Bean (replaces Guzzle HTTP client)
+    // RestTemplate Bean (replaces <cfhttp>)
     //
-    // Laravel: Http::get(), Http::post()
+    // CFML: <cfhttp method="GET" url="...">, <cfhttp method="POST" url="...">
     // Spring: restTemplate.getForObject(), restTemplate.postForObject()
     //
     // For reactive/non-blocking HTTP, use WebClient instead.
@@ -57,7 +57,7 @@ public class ApplicationConfig {
     // ==========================================================================
     // ObjectMapper Customization (replaces JSON encoding options)
     //
-    // Laravel: json_encode($data, JSON_PRETTY_PRINT)
+    // CFML: serializeJSON(data)
     // Spring: ObjectMapper handles all JSON serialization/deserialization.
     //
     // Spring Boot auto-configures ObjectMapper, but you can customize it here.
@@ -71,18 +71,18 @@ public class ApplicationConfig {
         mapper.registerModule(new JavaTimeModule());
 
         // Write dates as ISO strings, not timestamps
-        // Replaces: Carbon::toJson() format
+        // Replaces: CFML date handling in serializeJSON() / dateTimeFormat()
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
         return mapper;
     }
 
     // ==========================================================================
-    // CORS Configuration (replaces config/cors.php)
+    // CORS Configuration (replaces manual <cfheader> CORS in onRequestStart)
     //
-    // Laravel:
-    //   'allowed_origins' => ['*'],
-    //   'allowed_methods' => ['*'],
+    // CFML:
+    //   <cfheader name="Access-Control-Allow-Origin" value="*">
+    //   <cfheader name="Access-Control-Allow-Methods" value="GET,POST,PUT,DELETE">
     //
     // Spring: WebMvcConfigurer with CORS mappings.
     // For API-only apps, this may also go in SecurityConfig.
@@ -106,18 +106,19 @@ public class ApplicationConfig {
 
 // =============================================================================
 // @ConfigurationProperties Classes
-// Replace Laravel's config/*.php files with type-safe Java classes.
+// Replace CFML config (settings.ini.cfm, config CFCs, this.* in Application.cfc)
+// with type-safe Java classes.
 //
 // Usage in services:
 //   @Autowired or constructor injection of AppProperties
 //
 // Replaces:
-//   config('app.name')  → appProperties.getName()
-//   env('APP_URL')      → appProperties.getUrl()
+//   application.appName / getSetting("app.name")  → appProperties.getName()
+//   application.appUrl  / getSetting("app.url")   → appProperties.getUrl()
 // =============================================================================
 
 /**
- * Application settings — replaces config/app.php.
+ * Application settings — replaces this.* settings / settings.ini.cfm app section.
  * Binds to 'app.*' keys in application.yml.
  *
  * application.yml:
@@ -143,7 +144,7 @@ class AppProperties {
 }
 
 /**
- * Mail settings — replaces config/mail.php.
+ * Mail settings — replaces CF Administrator mail settings / mail config CFC.
  * Binds to 'app.mail.*' keys in application.yml.
  *
  * Note: Spring Boot already binds spring.mail.* automatically.
@@ -168,7 +169,7 @@ class MailProperties {
 }
 
 /**
- * Storage settings — replaces config/filesystems.php.
+ * Storage settings — replaces file-path settings (this.mappings / settings.ini.cfm).
  * Binds to 'app.storage.*' keys in application.yml.
  *
  * application.yml:
@@ -197,24 +198,26 @@ class StorageProperties {
 // Service Lifetime Reference
 // =============================================================================
 /*
-Laravel vs Spring Bean Scopes:
+CFML scopes vs Spring Bean Scopes:
 
-| Laravel                          | Spring                  | Description                              |
-|----------------------------------|-------------------------|------------------------------------------|
-| $app->singleton()                | @Scope("singleton")     | One instance for the entire app (DEFAULT) |
-| $app->bind() (default)           | @Scope("prototype")     | New instance every time it's requested   |
-| N/A                              | @Scope("request")       | One instance per HTTP request            |
-| N/A                              | @Scope("session")       | One instance per HTTP session            |
+| ColdFusion                              | Spring                  | Description                              |
+|-----------------------------------------|-------------------------|------------------------------------------|
+| CFC stored in `application` scope        | @Scope("singleton")     | One instance for the entire app (DEFAULT) |
+| createObject()/new per use               | @Scope("prototype")     | New instance every time it's requested   |
+| CFC stored in `request` scope            | @Scope("request")       | One instance per HTTP request            |
+| CFC stored in `session` scope            | @Scope("session")       | One instance per HTTP session            |
 
 IMPORTANT: Spring's DEFAULT scope is singleton (one instance for the app).
-This is the OPPOSITE of Laravel's default (new instance per request).
+Application-scope CFCs were singletons too — but many CF apps also created CFCs
+per-request via createObject()/new, so double-check each component's intent.
 
 Common patterns:
 - @Service, @Repository, @Controller → Singleton (default, stateless)
 - Request-scoped beans → @Scope("request") (rare, only if needed)
 - Prototype beans → @Scope("prototype") (rare, for stateful objects)
 
-Since most Spring beans are singleton, they MUST be thread-safe.
+Since most Spring beans are singleton, they MUST be thread-safe — the same rule
+that applied to application-scope CFCs (use var/local scoping, avoid shared mutable state).
 Do NOT store request-specific state in fields of @Service or @Controller classes.
 */
 
@@ -228,7 +231,7 @@ public class EmailService {
     private final MailProperties mailProperties;
     private final JavaMailSender mailSender;
 
-    // Laravel: config('mail.from.address')
+    // CFML: application.mailFrom / getSetting("mail.from")
     // Spring: mailProperties.getFrom()
     public EmailService(MailProperties mailProperties, JavaMailSender mailSender) {
         this.mailProperties = mailProperties;

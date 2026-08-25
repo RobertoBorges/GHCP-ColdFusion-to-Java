@@ -1,103 +1,59 @@
 // =============================================================================
-// PHP Eloquent to Java JPA Entity Conversion Example
-// Part of the PHP-to-Java Migration Framework
+// ColdFusion (CFML) to Java JPA Entity Conversion Example
+// Part of the ColdFusion-to-Java Migration Framework
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// BEFORE: PHP Laravel Eloquent Model (app/Models/Product.php)
+// BEFORE: ColdFusion CF-ORM persistent component (cfcs/Product.cfc)
+// CF-ORM persistent CFCs map most directly to JPA entities. Apps using DataMgr
+// or hand-written <cfquery> DAOs convert the same way — the columns and
+// relationships below become @Column and @ManyToOne/@OneToMany mappings.
 // -----------------------------------------------------------------------------
 /*
-<?php
+component persistent="true" table="products" output="false" {
 
-namespace App\Models;
+    // Primary key
+    property name="id" fieldtype="id" generator="identity";
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+    // Columns
+    property name="name"        ormtype="string"    length="255" notnull="true";
+    property name="slug"        ormtype="string"    length="255" unique="true";
+    property name="description" ormtype="text";
+    property name="price"       ormtype="big_decimal" notnull="true";
+    property name="active"      ormtype="boolean"   column="is_active" default="true";
+    property name="stockQuantity" ormtype="integer" column="stock_quantity";
+    property name="metadata"    ormtype="text"; // JSON stored as text
 
-class Product extends Model
-{
-    use HasFactory, SoftDeletes;
-
-    protected $fillable = [
-        'name',
-        'slug',
-        'description',
-        'price',
-        'category_id',
-        'is_active',
-    ];
-
-    protected $casts = [
-        'price' => 'decimal:2',
-        'is_active' => 'boolean',
-        'metadata' => 'array',
-    ];
-
-    protected $hidden = [
-        'created_at',
-        'updated_at',
-    ];
+    // Timestamps
+    property name="createdAt" ormtype="timestamp" column="created_at";
+    property name="updatedAt" ormtype="timestamp" column="updated_at";
+    property name="deletedAt" ormtype="timestamp" column="deleted_at"; // soft delete flag
 
     // Relationships
-    public function category()
-    {
-        return $this->belongsTo(Category::class);
+    property name="category" fieldtype="many-to-one" cfc="Category" fkcolumn="category_id";
+    property name="reviews"  fieldtype="one-to-many" cfc="Review" fkcolumn="product_id";
+    property name="tags"     fieldtype="many-to-many" cfc="Tag"
+             linktable="product_tag" fkcolumn="product_id" inversejoincolumn="tag_id";
+    property name="images"   fieldtype="one-to-many" cfc="Image" fkcolumn="product_id";
+
+    // "Accessor": formatted price (a computed getter / UDF)
+    public string function getFormattedPrice() {
+        return dollarFormat(variables.price);
     }
 
-    public function tags()
-    {
-        return $this->belongsToMany(Tag::class);
+    // "Mutator": setting the name also derives the slug
+    public void function setName(required string name) {
+        variables.name = arguments.name;
+        variables.slug = reReplace(lCase(trim(arguments.name)), "[^a-z0-9]+", "-", "all");
     }
 
-    public function reviews()
-    {
-        return $this->hasMany(Review::class);
+    // Business logic
+    public boolean function isAvailable() {
+        return variables.active && variables.stockQuantity gt 0;
     }
 
-    public function images()
-    {
-        return $this->morphMany(Image::class, 'imageable');
-    }
-
-    // Scopes
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
-
-    public function scopeInCategory($query, $categoryId)
-    {
-        return $query->where('category_id', $categoryId);
-    }
-
-    public function scopePriceRange($query, $min, $max)
-    {
-        return $query->whereBetween('price', [$min, $max]);
-    }
-
-    // Accessors
-    public function getFormattedPriceAttribute()
-    {
-        return '$' . number_format($this->price, 2);
-    }
-
-    // Mutators
-    public function setNameAttribute($value)
-    {
-        $this->attributes['name'] = $value;
-        $this->attributes['slug'] = Str::slug($value);
-    }
-
-    // Business Logic
-    public function isAvailable()
-    {
-        return $this->is_active && $this->stock_quantity > 0;
-    }
-
-    public function applyDiscount($percentage)
-    {
-        return $this->price * (1 - $percentage / 100);
+    public numeric function applyDiscount(required numeric percentage) {
+        return variables.price * (1 - arguments.percentage / 100);
     }
 }
 */
@@ -125,12 +81,12 @@ import java.util.*;
     @Index(name = "idx_product_category", columnList = "category_id"),
     @Index(name = "idx_product_active", columnList = "is_active")
 })
-@SQLRestriction("deleted_at IS NULL") // Soft delete filter (replaces SoftDeletes trait)
+@SQLRestriction("deleted_at IS NULL") // Soft delete filter (replaces the deletedAt convention)
 public class Product {
 
     // ==========================================================================
     // Primary Key
-    // Eloquent: protected $primaryKey = 'id'; (auto-increment by default)
+    // CF-ORM: property name="id" fieldtype="id" generator="identity";
     // ==========================================================================
 
     @Id
@@ -138,7 +94,7 @@ public class Product {
     private Long id;
 
     // ==========================================================================
-    // Properties (replaces $fillable and $casts)
+    // Properties (replaces the cfproperty column definitions)
     // ==========================================================================
 
     @Column(nullable = false, length = 255)
@@ -150,38 +106,38 @@ public class Product {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    // 'price' => 'decimal:2' → BigDecimal with column precision
+    // ormtype="big_decimal" → BigDecimal with column precision
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal price;
 
-    // 'is_active' => 'boolean' → boolean type maps directly
+    // ormtype="boolean" column="is_active" → boolean type maps directly
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
     private int stockQuantity;
 
-    // 'metadata' => 'array' → store as JSON string, convert in getter/setter
+    // metadata stored as JSON text → convert in getter/setter
     @Column(columnDefinition = "TEXT")
     private String metadataJson;
 
     // ==========================================================================
-    // Timestamps (replaces $timestamps = true via Hibernate annotations)
+    // Timestamps (replaces ormtype="timestamp" columns / DataMgr audit columns)
     // ==========================================================================
 
-    // Eloquent: created_at → Hibernate @CreationTimestamp
+    // created_at → Hibernate @CreationTimestamp
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
-    @JsonIgnore // replaces $hidden for JSON serialization
+    @JsonIgnore // exclude from JSON serialization
     private LocalDateTime createdAt;
 
-    // Eloquent: updated_at → Hibernate @UpdateTimestamp
+    // updated_at → Hibernate @UpdateTimestamp
     @UpdateTimestamp
     @Column(name = "updated_at")
     @JsonIgnore
     private LocalDateTime updatedAt;
 
     // ==========================================================================
-    // Soft Delete (replaces use SoftDeletes)
+    // Soft Delete (replaces the deletedAt timestamp convention)
     // Combined with @SQLRestriction on the class
     // ==========================================================================
 
@@ -189,22 +145,22 @@ public class Product {
     private LocalDateTime deletedAt;
 
     // ==========================================================================
-    // Relationships (replaces Eloquent relationship methods)
+    // Relationships (replaces CF-ORM fieldtype relationships)
     // ==========================================================================
 
-    // belongsTo → @ManyToOne
-    // Eloquent: return $this->belongsTo(Category::class);
+    // fieldtype="many-to-one" → @ManyToOne
+    // CF-ORM: property name="category" fieldtype="many-to-one" cfc="Category";
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
-    // hasMany → @OneToMany
-    // Eloquent: return $this->hasMany(Review::class);
+    // fieldtype="one-to-many" → @OneToMany
+    // CF-ORM: property name="reviews" fieldtype="one-to-many" cfc="Review";
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Review> reviews = new ArrayList<>();
 
-    // belongsToMany → @ManyToMany with @JoinTable
-    // Eloquent: return $this->belongsToMany(Tag::class);
+    // fieldtype="many-to-many" (linktable) → @ManyToMany with @JoinTable
+    // CF-ORM: property name="tags" fieldtype="many-to-many" cfc="Tag" linktable="product_tag";
     @ManyToMany
     @JoinTable(
         name = "product_tag",
@@ -213,17 +169,17 @@ public class Product {
     )
     private Set<Tag> tags = new HashSet<>();
 
-    // morphMany → @OneToMany with discriminator (or @Inheritance on Image)
-    // Eloquent: return $this->morphMany(Image::class, 'imageable');
+    // CF-ORM has no polymorphic relationship; model a plain one-to-many
+    // (or @Inheritance on Image) for what a generic "imageable" table would hold.
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
     private List<Image> images = new ArrayList<>();
 
     // ==========================================================================
-    // Computed Properties (replaces Accessors)
-    // Eloquent: public function getFormattedPriceAttribute()
+    // Computed Properties (replaces computed getters / UDFs)
+    // CF-ORM: public string function getFormattedPrice()
     // ==========================================================================
 
-    @Transient // Not persisted — equivalent to [NotMapped] or a computed accessor
+    @Transient // Not persisted — a computed accessor
     public String getFormattedPrice() {
         return NumberFormat.getCurrencyInstance(Locale.US).format(price);
     }
@@ -239,13 +195,13 @@ public class Product {
     }
 
     // ==========================================================================
-    // Mutator Logic (replaces setNameAttribute)
+    // Mutator Logic (replaces the setName() that also derived the slug)
     // In JPA, put mutator logic directly in the setter
     // ==========================================================================
 
     public void setName(String name) {
         this.name = name;
-        // Auto-generate slug when name is set (replaces Str::slug in mutator)
+        // Auto-generate slug when name is set (replaces reReplace()/lCase() in the CFC setter)
         this.slug = name.toLowerCase()
                 .replaceAll("[^a-z0-9\\s-]", "")
                 .replaceAll("\\s+", "-")
@@ -331,8 +287,8 @@ public class Product {
 }
 
 // -----------------------------------------------------------------------------
-// Spring Data JPA Repository (replaces Eloquent scopes)
-// Scopes become repository query methods
+// Spring Data JPA Repository (replaces CFC finder methods / DataMgr queries)
+// CFC finders and <cfquery> lookups become repository query methods
 // repository/ProductRepository.java
 // -----------------------------------------------------------------------------
 
@@ -350,16 +306,16 @@ import java.util.List;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    // scopeActive → findByActiveTrue()
+    // "getActiveProducts()" finder → findByActiveTrue()
     List<Product> findByActiveTrue();
 
-    // scopeInCategory → findByCategoryId()
+    // "getByCategory(id)" finder → findByCategoryId()
     List<Product> findByCategoryId(Long categoryId);
 
-    // scopePriceRange → findByPriceBetween()
+    // "getByPriceRange(min,max)" finder → findByPriceBetween()
     List<Product> findByPriceBetween(BigDecimal min, BigDecimal max);
 
-    // Combined scopes → compose in method name
+    // Combined finders → compose in method name
     List<Product> findByActiveTrueAndCategoryId(Long categoryId);
 
     // Complex queries → @Query with JPQL
@@ -380,18 +336,18 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 // -----------------------------------------------------------------------------
 // KEY CONVERSION PATTERNS:
 // -----------------------------------------------------------------------------
-// 1.  $fillable → Not needed; use DTOs (records) for input, entity for persistence
-// 2.  $casts → Use proper Java types (BigDecimal, boolean, LocalDateTime)
-// 3.  $hidden → @JsonIgnore on fields to exclude from JSON serialization
-// 4.  belongsTo → @ManyToOne with @JoinColumn
-// 5.  hasMany → @OneToMany(mappedBy = "field")
-// 6.  belongsToMany → @ManyToMany with @JoinTable
-// 7.  morphMany → @OneToMany with @Inheritance(strategy) on parent, or discriminator
-// 8.  SoftDeletes → @SQLRestriction("deleted_at IS NULL") + deletedAt field
-// 9.  Timestamps → @CreationTimestamp / @UpdateTimestamp (Hibernate)
+// 1.  cfproperty columns → @Column fields; use DTOs (records) for input binding
+// 2.  ormtype → proper Java types (BigDecimal, boolean, LocalDateTime)
+// 3.  Hidden/internal columns → @JsonIgnore to exclude from JSON serialization
+// 4.  fieldtype="many-to-one" → @ManyToOne with @JoinColumn
+// 5.  fieldtype="one-to-many" → @OneToMany(mappedBy = "field")
+// 6.  fieldtype="many-to-many" (linktable) → @ManyToMany with @JoinTable
+// 7.  Polymorphic tables (no CF-ORM equivalent) → @Inheritance strategy or discriminator
+// 8.  deletedAt convention → @SQLRestriction("deleted_at IS NULL") + deletedAt field
+// 9.  ormtype="timestamp" audit columns → @CreationTimestamp / @UpdateTimestamp (Hibernate)
 //     or @CreatedDate / @LastModifiedDate (Spring Data Auditing)
-// 10. Scopes → Spring Data JPA derived query methods (findByXxx)
-// 11. Accessors → @Transient getter methods
-// 12. Mutators → Logic inside setter methods
+// 10. CFC finder methods / DataMgr queries → Spring Data JPA derived query methods (findByXxx)
+// 11. Computed getters / UDFs → @Transient getter methods
+// 12. CFC setter logic → logic inside Java setter methods
 // 13. equals/hashCode → Based on business key, not auto-generated ID
 // 14. Use FetchType.LAZY for relationships to avoid N+1 queries

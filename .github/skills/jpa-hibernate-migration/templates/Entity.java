@@ -1,8 +1,9 @@
 // =============================================================================
 // JPA Entity Template
-// Part of the PHP-to-Java Migration Framework
+// Part of the ColdFusion-to-Java Migration Framework
 // =============================================================================
-// This template shows how to structure a JPA entity migrated from Eloquent.
+// This template shows how to structure a JPA entity migrated from a CF-ORM
+// persistent CFC (or a DataMgr / <cfquery> model).
 // Copy and customize for each entity in your application.
 // =============================================================================
 
@@ -20,7 +21,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 /**
- * Product entity — migrated from App\Models\Product (Eloquent).
+ * Product entity — migrated from cfcs/Product.cfc (CF-ORM persistent component).
  *
  * Implements Auditable and SoftDeletable interfaces for cross-cutting concerns.
  */
@@ -36,12 +37,12 @@ import java.util.*;
         @UniqueConstraint(name = "uk_product_slug", columnNames = "slug")
     }
 )
-@SQLRestriction("deleted_at IS NULL") // Soft delete filter (replaces SoftDeletes trait)
+@SQLRestriction("deleted_at IS NULL") // Soft delete filter (replaces the deletedAt column convention)
 public class Product implements Auditable, SoftDeletable {
 
     // ==========================================================================
     // Primary Key
-    // Eloquent: protected $primaryKey = 'id'; (default, auto-increment)
+    // CF-ORM: property name="id" fieldtype="id" generator="identity";
     //
     // Generation strategies:
     //   IDENTITY  — MySQL AUTO_INCREMENT / PostgreSQL SERIAL (most common)
@@ -55,7 +56,7 @@ public class Product implements Auditable, SoftDeletable {
 
     // ==========================================================================
     // Properties
-    // Eloquent: protected $fillable = ['name', 'slug', 'description', ...]
+    // CF-ORM: property name="name" ...; property name="slug" ...; (one cfproperty per column)
     // In JPA, all fields are persisted by default. Use DTOs for input validation.
     // ==========================================================================
 
@@ -67,14 +68,14 @@ public class Product implements Auditable, SoftDeletable {
 
     /**
      * Description with large text support.
-     * Eloquent: $casts not needed — use @Column or @Lob for large text.
+     * CF-ORM: property name="description" ormtype="text"; — use @Column or @Lob for large text.
      */
     @Column(columnDefinition = "TEXT")
     private String description;
 
     /**
      * Price with 2 decimal places.
-     * Eloquent: 'price' => 'decimal:2'
+     * CF-ORM: property name="price" ormtype="big_decimal";
      */
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal price;
@@ -87,14 +88,14 @@ public class Product implements Auditable, SoftDeletable {
 
     /**
      * Active status.
-     * Eloquent: 'is_active' => 'boolean'
+     * CF-ORM: property name="active" ormtype="boolean" column="is_active";
      */
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
     /**
      * JSON metadata stored as string.
-     * Eloquent: 'metadata' => 'array'
+     * CF-ORM: property name="metadata" ormtype="text"; holding serializeJSON() output
      *
      * For automatic JSON conversion, use an AttributeConverter:
      *   @Convert(converter = JsonMapConverter.class)
@@ -105,7 +106,7 @@ public class Product implements Auditable, SoftDeletable {
 
     /**
      * Enum field example.
-     * Eloquent: 'status' => ProductStatus::class (PHP 8.1 enum cast)
+     * CFML: a status string/list value (e.g. "draft","active") → Java enum
      */
     @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)
@@ -117,7 +118,7 @@ public class Product implements Auditable, SoftDeletable {
 
     /**
      * Category foreign key.
-     * Eloquent: return $this->belongsTo(Category::class);
+     * CF-ORM: property name="category" fieldtype="many-to-one" cfc="Category" fkcolumn="category_id";
      * The @ManyToOne + @JoinColumn defines the FK relationship.
      */
     @Column(name = "category_id", nullable = false, insertable = false, updatable = false)
@@ -131,7 +132,7 @@ public class Product implements Auditable, SoftDeletable {
 
     // ==========================================================================
     // Timestamps (Auditable interface)
-    // Eloquent: $timestamps = true (created_at, updated_at) — on by default
+    // CF-ORM: property name="createdAt"/"updatedAt" ormtype="timestamp"; (or DataMgr audit columns)
     // ==========================================================================
 
     @CreationTimestamp
@@ -144,7 +145,7 @@ public class Product implements Auditable, SoftDeletable {
 
     // ==========================================================================
     // Soft Delete (SoftDeletable interface)
-    // Eloquent: use SoftDeletes;
+    // CFML: a deletedAt / is_deleted column checked in every query
     // ==========================================================================
 
     @Column(name = "deleted_at")
@@ -156,7 +157,7 @@ public class Product implements Auditable, SoftDeletable {
 
     /**
      * Category this product belongs to.
-     * Eloquent: return $this->belongsTo(Category::class);
+     * CF-ORM: property name="category" fieldtype="many-to-one" cfc="Category";
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
@@ -164,7 +165,7 @@ public class Product implements Auditable, SoftDeletable {
 
     /**
      * User who created this product (optional).
-     * Eloquent: return $this->belongsTo(User::class, 'created_by_user_id');
+     * CF-ORM: property name="createdByUser" fieldtype="many-to-one" cfc="User" fkcolumn="created_by_user_id";
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id")
@@ -172,21 +173,21 @@ public class Product implements Auditable, SoftDeletable {
 
     /**
      * Reviews for this product.
-     * Eloquent: return $this->hasMany(Review::class);
+     * CF-ORM: property name="reviews" fieldtype="one-to-many" cfc="Review";
      */
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Review> reviews = new ArrayList<>();
 
     /**
      * Order items containing this product.
-     * Eloquent: return $this->hasMany(OrderItem::class);
+     * CF-ORM: property name="orderItems" fieldtype="one-to-many" cfc="OrderItem";
      */
     @OneToMany(mappedBy = "product")
     private List<OrderItem> orderItems = new ArrayList<>();
 
     /**
      * Tags for this product (many-to-many).
-     * Eloquent: return $this->belongsToMany(Tag::class);
+     * CF-ORM: property name="tags" fieldtype="many-to-many" cfc="Tag" linktable="product_tag";
      *
      * Note: Using Set<Tag> (not List) for proper equals/hashCode semantics
      * with many-to-many relationships.
@@ -200,18 +201,16 @@ public class Product implements Auditable, SoftDeletable {
     private Set<Tag> tags = new HashSet<>();
 
     /**
-     * Images for this product (polymorphic).
-     * Eloquent: return $this->morphMany(Image::class, 'imageable');
-     *
-     * In JPA, polymorphic relations use @Inheritance on the Image entity
-     * or a discriminator column pattern.
+     * Images for this product.
+     * CF-ORM has no polymorphic relationship; a legacy generic "imageable" table
+     * becomes a plain one-to-many, or use @Inheritance / a discriminator column.
      */
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
     private List<Image> images = new ArrayList<>();
 
     // ==========================================================================
     // Lifecycle Callbacks
-    // Eloquent: static::creating(...), static::updating(...)
+    // CF-ORM: preInsert() / preUpdate() event methods (or a global ORM event handler)
     // ==========================================================================
 
     @PrePersist
@@ -227,8 +226,8 @@ public class Product implements Auditable, SoftDeletable {
     }
 
     // ==========================================================================
-    // Computed Properties (replaces Accessors)
-    // Eloquent: public function getFormattedPriceAttribute()
+    // Computed Properties (replaces computed getters / UDFs)
+    // CFML: public string function getFormattedPrice() { return dollarFormat(variables.price); }
     // ==========================================================================
 
     @Transient
@@ -269,7 +268,7 @@ public class Product implements Auditable, SoftDeletable {
         stockQuantity -= quantity;
     }
 
-    // Convenience methods for managing tags (replaces belongsToMany attach/detach)
+    // Convenience methods for managing tags (replaces CF-ORM generated addTag()/removeTag())
     public void addTag(Tag tag) {
         tags.add(tag);
         tag.getProducts().add(this);
@@ -297,7 +296,7 @@ public class Product implements Auditable, SoftDeletable {
     }
 
     // ==========================================================================
-    // Mutator Logic (replaces Eloquent mutators)
+    // Mutator Logic (replaces CFC setter logic)
     // ==========================================================================
 
     public void setName(String name) {
@@ -377,7 +376,7 @@ public class Product implements Auditable, SoftDeletable {
 
 // =============================================================================
 // Enum for Status field
-// Eloquent: PHP 8.1 backed enums with $casts
+// CFML: a status string persisted as text (e.g. "draft","active","archived")
 // =============================================================================
 
 enum ProductStatus {
@@ -393,7 +392,7 @@ enum ProductStatus {
 
 /**
  * Interface for entities with audit timestamps.
- * Eloquent: $timestamps = true
+ * CF-ORM: ormtype="timestamp" created_at / updated_at columns
  */
 interface Auditable {
     LocalDateTime getCreatedAt();
@@ -402,7 +401,7 @@ interface Auditable {
 
 /**
  * Interface for soft-deletable entities.
- * Eloquent: use SoftDeletes;
+ * CFML: a deletedAt / is_deleted column convention
  */
 interface SoftDeletable {
     void softDelete();
@@ -413,7 +412,7 @@ interface SoftDeletable {
 
 // =============================================================================
 // AttributeConverter for JSON columns
-// Eloquent: 'metadata' => 'array' (automatic JSON cast)
+// CFML: serializeJSON() / deserializeJSON() around a text column
 // JPA: Use @Convert(converter = JsonMapConverter.class)
 // =============================================================================
 

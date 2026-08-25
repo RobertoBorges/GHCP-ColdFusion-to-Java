@@ -1,20 +1,20 @@
 ---
 agent: agent
-model: Claude Sonnet 4.5 (copilot)
-tools: ['search/codebase', 'search/usages', 'vscode/vscodeAPI', 'read/problems', 'search/changes', 'execute/testFailure', 'vscode/runCommand', 'read/terminalLastCommand', 'vscode/openSimpleBrowser', 'web/fetch', 'search/searchResults', 'web/githubRepo', 'vscode/extensions', 'execute/runTests', 'edit/editFiles', 'search', 'azure-mcp/*']
+model: Claude Sonnet 5 (copilot)
+tools: [vscode, execute, read, browser, edit, search, web, azure/search]
 ---
 
-# Phase 0: PHP Application Discovery & Understanding
+# Phase 0: ColdFusion Application Discovery & Understanding
 
 ## Objective
 
-Thoroughly analyze and document PHP application(s) to understand **what the application does**, its components, business logic, and behavior. This phase creates the foundation for the migration to Java / Spring Boot.
+Thoroughly analyze and document ColdFusion (CFML) application(s) to understand **what the application does**, its components, business logic, and behavior. This phase creates the foundation for the migration to Java / Spring Boot.
 
-**Goal**: Before we can migrate, we must fully understand the existing PHP application.
+**Goal**: Before we can migrate, we must fully understand the existing ColdFusion application.
 
 ## Context
 
-This prompt works with PHP repositories (single or multi-repo). The analysis produces comprehensive documentation about:
+This prompt works with ColdFusion (CFML) repositories (single or multi-repo). The analysis produces comprehensive documentation about:
 - What the application does (features, user journeys)
 - How it's structured (components, architecture)
 - Business logic location and flow
@@ -25,7 +25,7 @@ This prompt works with PHP repositories (single or multi-repo). The analysis pro
 ```mermaid
 graph TD
     A[Start] --> B{Single or Multi-Repo?}
-    B -->|Single| C[Analyze PHP Application]
+    B -->|Single| C[Analyze ColdFusion Application]
     B -->|Multi| D[Read codebase-repos.md]
     D --> E[Clone repositories]
     E --> F[Generate codebase-analysis.md]
@@ -45,182 +45,204 @@ graph TD
 
 ---
 
-## Step 1: PHP Framework Detection
+## Step 1: ColdFusion Engine & Framework Detection
 
-First, identify what type of PHP application we're dealing with:
+First, identify what type of ColdFusion application we're dealing with:
 
-### 1.1 Detect PHP Framework
+### 1.1 Detect the CFML Engine
 
-Use `file_search` and `grep_search` to identify the framework:
+Use `file_search` and `grep_search` to identify the engine:
+
+| Engine | Detection Pattern |
+|--------|------------------|
+| **Adobe ColdFusion** | `WEB-INF/cfusion/`, `neo-*.xml` config, `cfide/`, `Adobe` in admin, modern CFML tags + `cfscript` |
+| **Lucee** | `WEB-INF/lucee/`, `.lucee` config, `lucee-*.jar`, `Lucee` in admin |
+| **Railo / BlueDragon (legacy)** | `WEB-INF/railo/`, `railo-*.xml`, BlueDragon markers, older CFML syntax |
+| **CFML version** | Check for `cfscript`-only components, tag-in-script syntax, member functions (e.g., `arr.len()`), null support |
+
+### 1.2 Detect the CFML Framework
 
 | Framework | Detection Pattern |
 |-----------|------------------|
-| **Laravel** | `artisan` file, `composer.json` with `laravel/framework`, `app/Http/Controllers/` |
-| **Symfony** | `symfony.lock`, `composer.json` with `symfony/`, `config/bundles.php` |
-| **CodeIgniter** | `system/` folder, `CodeIgniter` in index.php |
-| **CakePHP** | `composer.json` with `cakephp/cakephp`, `config/app.php` |
-| **Yii** | `composer.json` with `yiisoft/yii2` |
-| **WordPress** | `wp-config.php`, `wp-content/`, `wp-admin/` |
-| **Drupal** | `core/` folder, `sites/default/settings.php` |
-| **Vanilla PHP** | No framework markers, custom structure |
-
-### 1.2 Detect PHP Version
-
-```bash
-# Check composer.json for PHP version requirement
-grep_search: "php" in composer.json
-# Look for: "php": "^8.1" or similar
-```
+| **Vanilla (Application.cfc)** | `Application.cfc` with `onApplicationStart/onRequestStart/onRequest`, no MVC framework |
+| **Vanilla (Application.cfm, legacy)** | `Application.cfm` with `<cfapplication>`, page-based flow, no `Application.cfc` |
+| **ColdBox** | `box.json` with `coldbox`, `config/Coldbox.cfc`, `handlers/`, `models/`, `views/`, WireBox/CBORM |
+| **FW/1 (Framework One)** | `framework.one` refs, `controllers/`, `services/`, `subsystems/`, `variables.framework` in Application.cfc |
+| **Fusebox** | `fusebox.xml`, `circuit.xml`, `fbx_*.cfm` files, `fuseaction` params |
+| **Mach-II** | `mach-ii.xml`, `listeners/`, `views/`, `event-handlers` |
+| **Model-Glue** | `ModelGlue.xml`, `controllers/`, event broadcasts |
+| **CFWheels** | `wheels/` folder, `config/settings.cfm`, RESTful routes, `models/` + `controllers/` |
+| **Custom / mixed** | No framework markers; `.cfm` pages act as controllers + views, CFCs in `cfcs/` or `com/` |
 
 ### 1.3 Detect Application Type
 
 | Type | Indicators |
 |------|------------|
-| **Web Application** | Views/templates, sessions, forms |
-| **REST API** | JSON responses, no views, API routes |
-| **Admin Panel** | CRUD operations, dashboard views |
-| **E-commerce** | Cart, checkout, products, payments |
-| **CMS** | Content management, pages, posts |
-| **Microservice** | Single responsibility, message queues |
+| **Web Application** | `.cfm` views, `<cfoutput>`, session scope, forms |
+| **REST API** | `<cfcontent type="application/json">`, `serializeJSON()`, Taffy/ColdBox REST, `remote` methods |
+| **Admin Panel** | CRUD `.cfm` pages, dashboard views, role checks |
+| **E-commerce** | Cart, checkout, products, payment gateways |
+| **CMS / portal** | Content management, dynamic pages, SVN/asset browsers |
+| **SOAP/Web Service** | `<cfcomponent>` with `access="remote"`, `returnformat="wddx"`, `.cfc?wsdl` |
 
 ---
 
 ## Step 2: Component Discovery
 
-### 2.1 Controllers & Routes
+### 2.1 Request Handlers & Routes
 
-**For Laravel:**
+**For vanilla `.cfm` (page-based):**
 ```
-file_search: app/Http/Controllers/**/*.php
-file_search: routes/web.php, routes/api.php
-```
-
-**For Symfony:**
-```
-file_search: src/Controller/**/*.php
-file_search: config/routes.yaml, config/routes/*.yaml
+file_search: **/*.cfm
+grep_search: "<cfswitch|<cfif structKeyExists\\(url|form"
+grep_search: "fuseaction|event=|action="
 ```
 
-**For Vanilla PHP:**
+**For ColdBox:**
 ```
-file_search: **/controller*.php, **/Controller*.php
-grep_search: "$_GET|$_POST|$_REQUEST"
-```
-
-**Document each controller:**
-| Controller | File Path | Actions/Methods | Routes | Purpose |
-|------------|-----------|-----------------|--------|---------|
-| UserController | app/Http/Controllers/UserController.php | index, show, store, update, delete | /users/* | User CRUD operations |
-
-### 2.2 Models & Entities (Data Layer)
-
-**For Laravel (Eloquent):**
-```
-file_search: app/Models/**/*.php
-file_search: app/*.php (older Laravel)
-grep_search: "extends Model"
+file_search: handlers/**/*.cfc
+file_search: config/Router.cfc, config/Coldbox.cfc
 ```
 
-**For Symfony (Doctrine):**
+**For FW/1:**
 ```
-file_search: src/Entity/**/*.php
-grep_search: "@ORM\\Entity|#[ORM\\Entity]"
+file_search: controllers/**/*.cfc
 ```
 
-**Document each model:**
-| Model | File Path | Table | Relationships | Key Fields | Business Rules |
-|-------|-----------|-------|---------------|------------|----------------|
-| User | app/Models/User.php | users | hasMany(Order), belongsTo(Role) | id, email, password, role_id | Email unique, soft deletes |
+**Document each handler / page:**
+| Handler / Page | File Path | Actions/Methods | Route / Fuseaction | Purpose |
+|----------------|-----------|-----------------|--------------------|---------|
+| UserController.cfc | handlers/User.cfc | index, show, save, delete | /user/* | User CRUD operations |
+| users.cfm | users.cfm | list + edit via `<cfswitch>` on `url.action` | ?action=list | User list & edit page |
+
+### 2.2 Components / Models (Data Layer)
+
+**For CF-ORM (`persistent="true"`):**
+```
+file_search: **/*.cfc
+grep_search: "persistent\\s*=\\s*\"true\"|<cfproperty"
+grep_search: "fieldtype=\"one-to-many\"|fieldtype=\"many-to-one\""
+```
+
+**For DataMgr:**
+```
+file_search: **/DataMgr/**/*.cfc
+grep_search: "createObject\\(\"component\",\\s*\"DataMgr|getRecords\\(|saveRecord\\("
+```
+
+**For raw `<cfquery>` data access:**
+```
+grep_search: "<cfquery|queryExecute\\(|<cfstoredproc"
+```
+
+**Document each model / component:**
+| Model / CFC | File Path | Table | Relationships | Key Fields | Business Rules |
+|-------------|-----------|-------|---------------|------------|----------------|
+| User.cfc | cfcs/User.cfc | users | one-to-many(Order), many-to-one(Role) | id, email, password, role_id | Email unique, soft delete flag |
 
 ### 2.3 Services & Business Logic
 
 **This is CRITICAL for migration** - identify where business logic lives:
 
 ```
-file_search: app/Services/**/*.php
-file_search: app/Repositories/**/*.php
-file_search: src/Service/**/*.php
-file_search: **/services/**/*.php
-grep_search: "class.*Service"
+file_search: **/*Service.cfc, **/services/**/*.cfc
+file_search: **/cfcs/**/*.cfc, **/com/**/*.cfc, models/**/*.cfc
+grep_search: "createObject\\(\"component\"|new .+\\(\\)|application\\.[a-zA-Z]+\\s*="
+grep_search: "<cffunction|function .+\\("
 ```
+
+**Note:** In many CFML apps, singleton service CFCs are instantiated in `Application.cfc` (`onApplicationStart`) and stored in the `application` scope (e.g., `application.userService`).
 
 **Document each service:**
 | Service | File Path | Responsibility | Dependencies | Key Methods | Business Rules |
 |---------|-----------|----------------|--------------|-------------|----------------|
-| PaymentService | app/Services/PaymentService.php | Process payments | StripeGateway, OrderRepository | processPayment(), refund() | Validate card, check limits |
+| PaymentService.cfc | cfcs/PaymentService.cfc | Process payments | gatewayCFC, OrderService | processPayment(), refund() | Validate card, check limits |
 
 ### 2.4 Views & UI Components
 
-**For Laravel (Blade):**
+**For `.cfm` views + custom tags:**
 ```
-file_search: resources/views/**/*.blade.php
-file_search: resources/views/layouts/*.blade.php
-file_search: resources/views/components/*.blade.php
+file_search: **/*.cfm
+grep_search: "<cfoutput|<cfif|<cfloop|<cfinclude"
+file_search: **/tags/**/*.cfm, **/customtags/**/*.cfm
+grep_search: "<cf_|<cfmodule|<cfsavecontent|<cfimport"
 ```
 
-**For Symfony (Twig):**
+**For layouts / includes:**
 ```
-file_search: templates/**/*.twig
-file_search: templates/**/*.html.twig
+grep_search: "<cfinclude template=|layout|header.cfm|footer.cfm"
 ```
 
 **Document UI structure:**
-| View/Template | File Path | Layout | Components Used | Purpose |
-|---------------|-----------|--------|-----------------|---------|
-| dashboard.blade.php | resources/views/dashboard.blade.php | app.blade.php | sidebar, chart, table | Main user dashboard |
+| View/Template | File Path | Layout / Include | Custom Tags Used | Purpose |
+|---------------|-----------|------------------|------------------|---------|
+| dashboard.cfm | dashboard.cfm | header.cfm / footer.cfm | `<cf_sidebar>`, `<cf_chart>` | Main user dashboard |
 
-### 2.5 Middleware & Filters
+### 2.5 Request Lifecycle & Filters
 
-```
-file_search: app/Http/Middleware/**/*.php
-grep_search: "implements Middleware|extends Middleware"
-```
-
-**Document middleware:**
-| Middleware | File Path | Applied To | Purpose |
-|------------|-----------|------------|---------|
-| AuthMiddleware | app/Http/Middleware/Authenticate.php | All protected routes | Verify user authentication |
-
-### 2.6 Database Migrations & Schema
+CFML applications typically implement cross-cutting concerns in `Application.cfc` lifecycle methods (or `Application.cfm` for legacy apps), plus custom tags and interceptors.
 
 ```
-file_search: database/migrations/**/*.php
-file_search: migrations/**/*.php
+file_search: **/Application.cfc, **/Application.cfm
+grep_search: "onApplicationStart|onSessionStart|onRequestStart|onRequest|onRequestEnd|onError|onMissingTemplate"
+grep_search: "<cflogin|<cfloginuser|isUserInRole|<cfapplication"
+```
+
+**Document lifecycle / filters:**
+| Lifecycle Hook / Filter | File Path | Applied To | Purpose |
+|-------------------------|-----------|------------|---------|
+| onRequestStart | Application.cfc | All requests | Auth check, request setup |
+| onError | Application.cfc | All requests | Global error handling |
+| `<cflogin>` block | Application.cfc / login.cfm | Protected pages | Verify user authentication |
+
+### 2.6 Database Schema & Migrations
+
+CFML has no single standard migration tool. Schema may come from hand-written `.sql`, DataMgr auto-schema, or CommandBox `cfmigrations`.
+
+```
+file_search: **/*.sql, **/migrations/**/*.cfc
+grep_search: "CREATE TABLE|ALTER TABLE"
+grep_search: "cfmigrations|migrate up|dbCreateTable|dbCreateColumns"
 ```
 
 **Document database structure:**
-| Table | Migration File | Columns | Indexes | Foreign Keys |
-|-------|---------------|---------|---------|--------------|
-| users | 2024_01_01_create_users_table.php | id, email, password, created_at | email (unique) | - |
+| Table | Source (SQL / DataMgr / cfmigrations) | Columns | Indexes | Foreign Keys |
+|-------|---------------------------------------|---------|---------|--------------|
+| users | schema.sql | id, email, password, created_at | email (unique) | - |
 
-### 2.7 Background Jobs & Workers
+### 2.7 Background Jobs & Scheduled Tasks
 
 ```
-file_search: app/Jobs/**/*.php
-file_search: app/Console/Commands/**/*.php
-grep_search: "implements ShouldQueue"
-grep_search: "class.*Command.*extends"
+grep_search: "<cfschedule|<cfthread|createObject\\(\"java\",\\s*\"java.lang.Thread"
+grep_search: "scheduledtasks|neo-cron|cronjob"
+file_search: **/scheduled/**/*.cfm, **/tasks/**/*.cfm
 ```
 
 **Document jobs:**
-| Job/Command | File Path | Trigger | Purpose | Schedule |
-|-------------|-----------|---------|---------|----------|
-| SendEmailJob | app/Jobs/SendEmailJob.php | Queue | Send transactional emails | On-demand |
-| CleanupCommand | app/Console/Commands/Cleanup.php | Scheduler | Remove old records | Daily 2am |
+| Job / Task | File Path | Trigger | Purpose | Schedule |
+|------------|-----------|---------|---------|----------|
+| sendEmails.cfm | tasks/sendEmails.cfm | `<cfschedule>` / CF Admin | Send transactional emails | On-demand |
+| cleanup.cfm | tasks/cleanup.cfm | CF Admin scheduled task | Remove old records | Daily 2am |
 
-### 2.8 Third-Party Packages (Composer)
+### 2.8 Dependencies & Built-in Tags
+
+CFML dependencies come from built-in tags/functions, `createObject("java",...)` interop (often via JavaLoader), CommandBox/ForgeBox modules (`box.json`), and bundled `.jar`/CFC libraries.
 
 ```
-read_file: composer.json (dependencies section)
-read_file: composer.lock (for exact versions)
+read_file: box.json (if CommandBox/ForgeBox is used)
+file_search: **/*.jar, **/javaloader/**, **/lib/**
+grep_search: "<cfmail|<cffile|<cfhttp|<cfdocument|<cfpdf|<cfspreadsheet|<cfimage|<cfftp|<cfldap"
+grep_search: "createObject\\(\"java\"|JavaLoader"
 ```
 
-**Document key packages:**
-| Package | Version | Purpose | Java Equivalent |
-|---------|---------|---------|-----------------|
-| stripe/stripe-php | ^10.0 | Payment processing | com.stripe:stripe-java |
-| tymon/jwt-auth | ^2.0 | JWT authentication | spring-boot-starter-oauth2-resource-server |
-| intervention/image | ^2.7 | Image manipulation | net.coobird:thumbnailator |
+**Document key dependencies:**
+| Dependency (tag / module / jar) | Purpose | Java Equivalent |
+|---------------------------------|---------|-----------------|
+| `<cfmail>` | Send email | Spring `JavaMailSender` |
+| `<cfdocument>` / `<cfpdf>` | PDF generation | OpenPDF / iText |
+| `<cfspreadsheet>` | Excel files | Apache POI |
+| `<cfhttp>` | HTTP calls | `HttpClient` / `WebClient` |
+| `createObject("java","...")` / JavaLoader | Java interop | Native Java (already on JVM) |
 
 ---
 
@@ -233,13 +255,13 @@ Create a complete list of what the application does:
 **User-Facing Features:**
 | Feature | Description | Components Involved | Priority |
 |---------|-------------|---------------------|----------|
-| User Registration | New users can sign up | UserController, User model, RegisterForm view | High |
-| Product Search | Search products by name/category | ProductController, SearchService, search.blade.php | High |
+| User Registration | New users can sign up | register.cfm, User.cfc, UserService.cfc | High |
+| Product Search | Search products by name/category | search.cfm, SearchService.cfc | High |
 
 **Admin Features:**
 | Feature | Description | Components Involved | Priority |
 |---------|-------------|---------------------|----------|
-| User Management | CRUD for users | Admin/UserController, admin/users/*.blade.php | Medium |
+| User Management | CRUD for users | admin/users.cfm, UserService.cfc | Medium |
 
 ### 3.2 User Journeys
 
@@ -260,11 +282,11 @@ graph LR
 
 **CRITICAL**: Document where each business rule is implemented:
 
-| Business Rule | Description | File Location | Method |
-|---------------|-------------|---------------|--------|
-| Order minimum | Orders must be > $10 | app/Services/OrderService.php | validateOrder() |
-| Password policy | Min 8 chars, 1 number | app/Rules/PasswordRule.php | passes() |
-| Discount logic | 10% off orders > $100 | app/Services/DiscountService.php | calculateDiscount() |
+| Business Rule | Description | File Location | Function |
+|---------------|-------------|---------------|----------|
+| Order minimum | Orders must be > $10 | cfcs/OrderService.cfc | validateOrder() |
+| Password policy | Min 8 chars, 1 number | cfcs/UserService.cfc | validatePassword() |
+| Discount logic | 10% off orders > $100 | cfcs/DiscountService.cfc | calculateDiscount() |
 
 ---
 
@@ -273,67 +295,70 @@ graph LR
 ### 4.1 External APIs
 
 ```
-grep_search: "Http::get|Http::post|curl_init|Guzzle|file_get_contents.*http"
-grep_search: "new Client|GuzzleHttp"
+grep_search: "<cfhttp|createObject\\(\"java\",\\s*\"java.net|WebService|<cfinvoke webservice"
 ```
 
 **Document external integrations:**
 | API | Purpose | Endpoint Pattern | Auth Method | Used In |
 |-----|---------|-----------------|-------------|---------|
-| Stripe | Payments | api.stripe.com | API Key | PaymentService |
-| SendGrid | Email | api.sendgrid.com | API Key | EmailService |
+| Stripe | Payments | api.stripe.com | API Key | PaymentService.cfc |
+| SendGrid | Email | api.sendgrid.com | API Key | EmailService.cfc |
 
 ### 4.2 Database Connections
 
 ```
-grep_search: "DB::|Eloquent|PDO|mysqli"
-read_file: config/database.php or .env
+grep_search: "<cfquery datasource=|queryExecute\\(.+datasource|this.datasource"
+read_file: Application.cfc / settings.ini.cfm (datasource config) or CF Administrator datasources
 ```
 
 **Document database usage:**
-| Database | Type | Purpose | Connection Name |
+| Database | Type | Purpose | Datasource Name |
 |----------|------|---------|-----------------|
-| Main DB | MySQL 8.0 | Application data | mysql |
-| Cache | Redis | Session & cache | redis |
+| Main DB | MySQL 8.0 | Application data | myAppDSN |
+| Cache | Redis / `<cfcache>` | Session & cache | - |
+
+**Note:** The datasource is typically defined in the CF Administrator, in `Application.cfc` (`this.datasources`), or in a config file such as `settings.ini.cfm`.
 
 ### 4.3 File Storage
 
 ```
-grep_search: "Storage::|move_uploaded_file|file_put_contents"
+grep_search: "<cffile|<cfdirectory|fileWrite\\(|fileRead\\(|expandPath\\("
 ```
 
-### 4.4 Queue/Message Systems
+### 4.4 Threads / Async Processing
 
 ```
-grep_search: "Queue::|dispatch|ShouldQueue"
-grep_search: "RabbitMQ|Kafka|SQS|Redis.*queue"
+grep_search: "<cfthread|thread action=|<cfschedule"
+grep_search: "createObject\\(\"java\",\\s*\"java.util.concurrent"
 ```
 
 ---
 
 ## Step 5: Configuration & Environment
 
-### 5.1 Environment Variables
+### 5.1 Configuration Sources
+
+CFML apps configure themselves via `Application.cfc` (`this.*` settings), config files (`settings.ini.cfm`, `settings.local.cfm`), and the CF Administrator.
 
 ```
-read_file: .env.example
-grep_search: "env\(|getenv\(|$_ENV"
+read_file: Application.cfc, config/settings.ini.cfm, config/settings.local.cfm
+grep_search: "this\\.|application\\.settings|getProfileString\\(|<cfconfig"
 ```
 
-**Document all environment variables:**
-| Variable | Purpose | Required | Default | Sensitive |
-|----------|---------|----------|---------|-----------|
-| APP_KEY | Encryption key | Yes | - | Yes |
-| DB_HOST | Database host | Yes | localhost | No |
-| STRIPE_SECRET | Stripe API key | Yes | - | Yes |
+**Document all configuration values:**
+| Setting | Purpose | Required | Default | Sensitive |
+|---------|---------|----------|---------|-----------|
+| datasource | Database datasource name | Yes | - | No |
+| mailServer | SMTP host | Yes | localhost | No |
+| stripeSecret | Stripe API key | Yes | - | Yes |
 
 ### 5.2 Configuration Files
 
 | Config File | Purpose | Key Settings |
 |-------------|---------|--------------|
-| config/app.php | App settings | timezone, locale, providers |
-| config/database.php | DB connections | connections, migrations |
-| config/auth.php | Authentication | guards, providers, passwords |
+| Application.cfc | App settings & lifecycle | this.name, this.datasource, this.sessionManagement, mappings |
+| settings.ini.cfm | Environment settings | datasource, mail, API keys |
+| CF Administrator | Server-level config | datasources, scheduled tasks, mappings, JVM args |
 
 ---
 
@@ -346,8 +371,8 @@ Create `reports/Application-Discovery-Report.md` with the following structure:
 
 **Application Name**: [Name]
 **Analysis Date**: [Date]
-**PHP Version**: [Version]
-**Framework**: [Framework + Version]
+**CFML Engine**: [Adobe ColdFusion / Lucee / Railo — version]
+**Framework**: [Framework + Version, or vanilla Application.cfc/.cfm]
 **Application Type**: [Web App/API/Admin Panel/etc.]
 
 ## Executive Summary
@@ -364,30 +389,30 @@ Create `reports/Application-Discovery-Report.md` with the following structure:
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Blade/Twig + Bootstrap/Tailwind |
-| Backend | Laravel 10 / PHP 8.2 |
+| Frontend | .cfm + `<cfoutput>` / custom tags + Bootstrap |
+| Backend | Adobe ColdFusion 2021 / Lucee 5 (CFML) |
 | Database | MySQL 8.0 |
-| Cache | Redis |
-| Queue | Redis/SQS |
+| Cache | Redis / `<cfcache>` |
+| Async | `<cfthread>` / `<cfschedule>` |
 
 ## Component Inventory
 
-### Controllers ([Count])
-[Table of all controllers]
+### Handlers / Pages ([Count])
+[Table of all request handlers and .cfm pages]
 
-### Models ([Count])
-[Table of all models with relationships]
+### Models / Components ([Count])
+[Table of all models/CFCs with relationships]
 
 ### Services ([Count])
 [Table of all services with business logic]
 
 ### Views ([Count])
-[Table of all views/templates]
+[Table of all views/.cfm templates]
 
-### Middleware ([Count])
-[Table of all middleware]
+### Lifecycle & Filters ([Count])
+[Table of Application.cfc hooks and cross-cutting logic]
 
-### Jobs & Commands ([Count])
+### Jobs & Scheduled Tasks ([Count])
 [Table of background processes]
 
 ## Feature Inventory
@@ -400,7 +425,7 @@ Create `reports/Application-Discovery-Report.md` with the following structure:
 
 ## Business Logic Map
 
-[Table mapping business rules to files and methods]
+[Table mapping business rules to files and functions]
 
 ## External Integrations
 
@@ -417,15 +442,15 @@ Create `reports/Application-Discovery-Report.md` with the following structure:
 
 ## Environment & Configuration
 
-[Environment variables and config files]
+[Configuration sources and settings]
 
 ## Complexity Assessment
 
 | Area | Complexity | Notes |
 |------|------------|-------|
-| Controllers | Medium | 15 controllers, standard CRUD |
+| Handlers / Pages | Medium | 15 .cfm pages, standard CRUD |
 | Business Logic | High | Complex discount and pricing rules |
-| UI | Medium | 45 Blade templates |
+| UI | Medium | 45 .cfm templates + custom tags |
 | Integrations | Low | 2 external APIs |
 
 ## Ready for Phase 1
@@ -462,6 +487,7 @@ For solutions with multiple repositories, repeat the analysis for each repo and 
 - Read **2000 lines at a time** for sufficient context
 - Use `semantic_search` for cross-file pattern discovery
 - Document **ALL components** - don't skip any
+- Watch for **mixed tag + `<cfscript>`** styles within the same CFC/page
 
 ### Documentation Rules
 - Create reports in `reports/` folder
@@ -471,7 +497,7 @@ For solutions with multiple repositories, repeat the analysis for each repo and 
 
 ### Business Logic Priority
 - **CRITICAL**: Identify all business logic locations
-- Document business rules with file paths and method names
+- Document business rules with file paths and function/method names
 - This information is essential for Phase 2 (Migration Planning)
 
 ### Do NOT
@@ -488,7 +514,7 @@ At the end of Phase 0, you should have:
 
 1. ✅ `reports/Application-Discovery-Report.md` - Complete application understanding
 2. ✅ All components documented with file paths
-3. ✅ Business logic mapped to specific files and methods
+3. ✅ Business logic mapped to specific files and functions
 4. ✅ Feature inventory with component relationships
 5. ✅ Architecture diagrams (Mermaid)
 6. ✅ Database schema documented

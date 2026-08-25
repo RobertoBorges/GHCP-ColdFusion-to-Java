@@ -1,20 +1,20 @@
-# GitHub Copilot Migration & Modernization for Azure - PHP to Java 21
+# GitHub Copilot Migration & Modernization for Azure - ColdFusion to Java 21
 
-This repository showcases how GitHub Copilot using custom agents, prompts, and skills can be leveraged to migrate PHP applications to Java 21 / Spring Boot 3.x for Azure deployment. The project provides a comprehensive 7-phase migration journey with enhanced tracking, status reporting, and a structured approach to the migration process.
+This repository showcases how GitHub Copilot using custom agents, prompts, and skills can be leveraged to migrate ColdFusion (CFML) applications to Java 21 / Spring Boot 3.x for Azure deployment. The project provides a comprehensive 7-phase migration journey with enhanced tracking, status reporting, and a structured approach to the migration process.
 
 ## Overview
 
-The GitHub Copilot PHP to Java 21 Migration Framework provides a structured approach to:
+The GitHub Copilot ColdFusion to Java 21 Migration Framework provides a structured approach to:
 
-1. **Discover** PHP applications and understand their components, business logic, and architecture
+1. **Discover** ColdFusion applications and understand their components, business logic, and architecture
 2. **Assess** migration risks and gather user preferences for Java / Spring Boot architecture
 3. **Plan** detailed file-by-file migration strategies
-4. **Migrate** PHP code to modern Java 21 with Spring Boot 3.x
+4. **Migrate** ColdFusion code to modern Java 21 with Spring Boot 3.x
 5. **Generate** Azure infrastructure as code (Bicep/Terraform)
 6. **Deploy** applications to Azure services
 7. **Configure** CI/CD pipelines for automated deployment
 
-Through a guided, AI-assisted workflow, developers can efficiently transform PHP applications into modern, cloud-native Java 21 solutions running on Azure.
+Through a guided, AI-assisted workflow, developers can efficiently transform ColdFusion applications into modern, cloud-native Java 21 solutions running on Azure.
 
 ## Requirements
 
@@ -36,24 +36,25 @@ Through a guided, AI-assisted workflow, developers can efficiently transform PHP
   - **`agents/`**: Migration agent definition (`Code-Migration-Modernization.agent.md`)
   - **`prompts/`**: Structured prompts for each phase of the migration process
   - **`skills/`**: Specialized skills with mapping references and templates
-    - `php-to-java-mapping/` - PHP to Java code conversion patterns
-    - `jpa-hibernate-migration/` - Eloquent/Doctrine to JPA/Hibernate patterns
+    - `coldfusion-to-java-mapping/` - ColdFusion to Java code conversion patterns
+    - `jpa-hibernate-migration/` - CF-ORM/DataMgr/`<cfquery>` to JPA/Hibernate patterns
     - `spring-boot-project-structure/` - Spring Boot project templates
     - `azure-containerization/` - Docker and Azure deployment
 
-- **`Sample/`**: Example PHP Bookstore application for migration demonstration
-  - **`bookstore/`**: Vanilla PHP application with MySQL
-  - **`docker-compose.yml`**: Docker setup for running the PHP app
+- **`Sample/`**: Example ColdFusion (CFML) application for migration demonstration
+  - A legacy `Application.cfm`-style project-management / issue-tracking app
+  - Business components (CFCs) under `cfcs/` plus a `DataMgr` ORM
+  - MySQL database
 
 ## Migration & Modernization Process
 
-The repository implements a structured 7-phase approach to PHP to Java 21 migration:
+The repository implements a structured 7-phase approach to ColdFusion to Java 21 migration:
 
 ### Phase 0: Application Discovery (`/phase0-applicationdiscovery`)
 
-Analyze the PHP application to understand its components:
-- Detect PHP framework (Laravel, Symfony, CodeIgniter, Slim, vanilla PHP)
-- Inventory controllers, models, services, and views
+Analyze the ColdFusion application to understand its components:
+- Detect the CFML engine (Adobe ColdFusion, Lucee, Railo/BlueDragon) and framework (vanilla `Application.cfc`/`Application.cfm`, ColdBox, FW/1, Fusebox, Mach-II, Model-Glue, CFWheels)
+- Inventory handlers/pages, components (CFCs), services, and views
 - Map business logic locations and flows
 - Document dependencies and integrations
 - **Output**: `reports/Application-Discovery-Report.md`
@@ -62,7 +63,7 @@ Analyze the PHP application to understand its components:
 
 Assess migration risks and gather preferences:
 - Evaluate migration complexity and risks
-- Map PHP patterns to Java equivalents
+- Map CFML patterns to Java equivalents
 - Gather architecture preferences (Spring Boot MVC vs REST API, JPA/Hibernate vs JDBC)
 - Estimate migration effort
 - **Output**: `reports/Technical-Assessment-Report.md`
@@ -77,11 +78,11 @@ Create detailed file-by-file migration plan:
 
 ### Phase 3: Code Migration (`/phase3-migratecode`)
 
-Execute the PHP to Java 21 migration:
+Execute the ColdFusion to Java 21 migration:
 - Create Java 21 / Spring Boot project structure
-- Migrate controllers, services, and business logic
-- Convert Eloquent models to JPA / Hibernate entities
-- Transform Blade/Twig to Thymeleaf templates
+- Migrate handlers/pages, services, and business logic
+- Convert CF-ORM / DataMgr / `<cfquery>` to JPA / Hibernate entities
+- Transform `.cfm` / custom tags to Thymeleaf templates
 - Build and validate after each wave
 
 ### Phase 4: Infrastructure Generation (`/phase4-generateinfra`)
@@ -107,30 +108,30 @@ Configure automated deployment pipelines:
 
 ## Key Features
 
-- **PHP Framework Detection**: Automatic detection of Laravel, Symfony, CodeIgniter, Slim, Lumen, vanilla PHP
-- **ORM Migration**: Eloquent/Doctrine to JPA / Hibernate with relationships
-- **Template Conversion**: Blade/Twig syntax to Thymeleaf templates
-- **Package Mapping**: Composer packages to Maven/Gradle equivalents
-- **Authentication Modernization**: Laravel Auth to Spring Security or Entra ID
+- **CFML Engine & Framework Detection**: Automatic detection of Adobe ColdFusion, Lucee, Railo/BlueDragon; vanilla `Application.cfc`/`Application.cfm`, ColdBox, FW/1, Fusebox, Mach-II, Model-Glue, CFWheels
+- **ORM Migration**: CF-ORM / DataMgr / `<cfquery>` to JPA / Hibernate with relationships
+- **Template Conversion**: `.cfm` / `<cfoutput>` / custom tags to Thymeleaf templates
+- **Dependency Mapping**: CFML built-in tags / Java interop / modules to Maven/Gradle equivalents
+- **Authentication Modernization**: `<cflogin>` / `<cfloginuser>` / `isUserInRole()` to Spring Security or Entra ID
 - **Containerization**: Docker support with multi-stage builds
 - **Multi-Platform Support**: App Service, Container Apps, AKS
 - **Status Tracking**: Comprehensive progress reporting with `/getstatus`
 - **Skills System**: Specialized skills with code examples and templates
 
-## PHP to Java 21 Mapping Quick Reference
+## ColdFusion to Java 21 Mapping Quick Reference
 
-| PHP | Java 21 |
-|-----|---------|
-| Laravel/Symfony | Spring Boot MVC |
-| CodeIgniter/Slim/Lumen | Spring Boot REST |
-| Eloquent/Doctrine | JPA / Hibernate |
-| Blade/Twig | Thymeleaf templates |
-| Laravel Auth | Spring Security |
-| Composer packages | Maven/Gradle dependencies |
-| `.env` files | `application.yml` / `application.properties` |
-| Laravel Queues | Spring @Async / RabbitMQ |
+| ColdFusion (CFML) | Java 21 |
+|-------------------|---------|
+| Vanilla CFML / ColdBox / FW/1 / Fusebox / Mach-II | Spring Boot MVC |
+| Taffy / remote `.cfc` endpoints | Spring Boot REST |
+| CF-ORM / DataMgr / `<cfquery>` | JPA / Hibernate |
+| `.cfm` + `<cfoutput>` / custom tags | Thymeleaf templates |
+| `<cflogin>` / `<cfloginuser>` | Spring Security |
+| Built-in tags / `createObject("java")` / JavaLoader | Maven/Gradle dependencies |
+| `settings.ini.cfm` / CF Admin / `Application.cfc this.*` | `application.yml` / `application.properties` |
+| `<cfthread>` / `<cfschedule>` | Spring @Async / @Scheduled |
 
-For complete mapping tables with examples, see `.github/skills/php-to-java-mapping/`.
+For complete mapping tables with examples, see `.github/skills/coldfusion-to-java-mapping/`.
 
 ## Avoiding Hallucinations
 
@@ -151,8 +152,8 @@ During each phase, read the summary carefully to understand what will be deliver
 
 1. Clone this repository
 2. Install [GitHub Copilot](https://copilot.github.com/) in Visual Studio Code
-3. Open VS Code and select the PHP to Java 21 Migration agent
-4. Start with `/phase0-applicationdiscovery` to analyze your PHP application
+3. Open VS Code and select the ColdFusion to Java 21 Migration agent
+4. Start with `/phase0-applicationdiscovery` to analyze your ColdFusion application
 5. Use `/getstatus` at any time to check migration progress
 6. Follow the guided prompts through all 7 phases
 
@@ -166,19 +167,15 @@ The migration process supports multiple Azure hosting options:
 
 ## Sample Application
 
-The repository includes a PHP Bookstore application (`Sample/bookstore/`) for demonstrating the migration:
+The repository includes a ColdFusion (CFML) project-management / issue-tracking application under `Sample/` for demonstrating the migration:
 
-- **Source**: Vanilla PHP with MySQL
-- **Features**: User registration, login, profile editing, book management
-- **Database**: MySQL with Docker Compose support
+- **Source**: Legacy CFML using `Application.cfm` (`<cfapplication>` with session-based login), mixing CFML tags and `<cfscript>`
+- **Structure**: Root `.cfm` pages act as controllers + views; business logic lives in CFCs under `cfcs/`, instantiated in the `application` scope
+- **Features**: Projects, milestones, issues/tickets, to-do lists, time tracking, billing & invoices, messages, file management, search, RSS, an SVN repository browser, plus `api/` and `mobile/` interfaces
+- **Data Access**: `DataMgr` ORM (`cfcs/DataMgr/`) plus `<cfquery>`; Java interop via `JavaLoader.cfc` / `JavaProxy.cfc`
+- **Database**: MySQL
 
-Run the sample with Docker:
-```bash
-cd Sample
-docker-compose up -d
-```
-
-Access at: http://localhost:8080
+> **Note**: The sample is the *source* application for the migration walkthrough. Use `/phase0-applicationdiscovery` to begin analyzing it.
 
 ## Contributing
 

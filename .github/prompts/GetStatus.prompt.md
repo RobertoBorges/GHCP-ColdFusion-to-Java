@@ -4,7 +4,7 @@ agent: agent
 
 # Get Migration Status
 
-Retrieve and display the current status of the PHP to Java 21 (Spring Boot) migration process.
+Retrieve and display the current status of the ColdFusion to Java 21 (Spring Boot) migration process.
 
 ## Rules for Status Tracking
 
@@ -30,7 +30,7 @@ Ensure the status file contains:
 # Migration Status Report
 
 **Application**: [Name]
-**Source**: PHP [Version] / [Framework]
+**Source**: ColdFusion [Engine/Version] / [Framework]
 **Target**: Java 21 (Spring Boot)
 **Last Updated**: [Date/Time]
 
