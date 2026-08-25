@@ -40,6 +40,7 @@ See the full [*Change Log*](ChangeLog.md)
     - [spring-boot-project-structure](#spring-boot-project-structure)
     - [azure-containerization](#azure-containerization)
   - [Guidelines for Migration with Sample Application](#guidelines-for-migration-with-sample-application)
+    - [Running the Sample Application Locally (Docker)](#running-the-sample-application-locally-docker)
     - [Phase 0: Application Discovery](#phase-0-application-discovery-1)
     - [Phase 1: Technical Assessment](#phase-1-technical-assessment-1)
     - [Phase 2: Migration Planning](#phase-2-migration-planning-1)
@@ -251,16 +252,23 @@ Configure automated deployment pipelines:
     ├── jpa-hibernate-migration/                 # CF-ORM/DataMgr/<cfquery> to JPA/Hibernate patterns
     ├── coldfusion-to-java-mapping/              # ColdFusion to Java mapping reference
     └── spring-boot-project-structure/           # Spring Boot project templates
-Sample/                                          # Sample ColdFusion (CFML) application for migration
-├── Application.cfm                              # Legacy application bootstrap (<cfapplication>)
-├── cfcs/                                        # Business components (CFCs) + DataMgr ORM
-├── config/                                      # settings.cfc / settings.ini.cfm / settings.local.cfm
-├── tags/                                        # Custom CFML tags
-├── templates/                                   # Shared .cfm view templates
-├── includes/                                    # Shared includes / UDFs
-├── api/                                         # API interface
-├── mobile/                                      # Mobile interface
-└── *.cfm                                        # Root .cfm pages (controllers + views)
+Sample/                                          # Sample app + local run environment
+├── Docker/                                      # Local Docker environment to run the legacy app as-is
+│   ├── docker-compose.yml                      # Lucee 5 (app) + MySQL 5.7 (db) services
+│   ├── cfconfig/CFConfig.json                  # "project" datasource imported into Lucee
+│   ├── config-overrides/                       # settings overrides (empty mapping + local rootURL)
+│   ├── images/                                 # Screenshots for the Docker README
+│   └── README.md                               # How to run the sample app locally
+└── ProjectTrackerSrc/                           # Legacy ColdFusion (CFML) application source
+    ├── Application.cfm                          # Legacy application bootstrap (<cfapplication>)
+    ├── cfcs/                                    # Business components (CFCs) + DataMgr ORM
+    ├── config/                                  # settings.cfc / settings.ini.cfm / settings.local.cfm
+    ├── tags/                                    # Custom CFML tags
+    ├── templates/                               # Shared .cfm view templates
+    ├── includes/                                # Shared includes / UDFs
+    ├── api/                                     # API interface
+    ├── mobile/                                  # Mobile interface
+    └── *.cfm                                    # Root .cfm pages (controllers + views)
 ```
 
 ---
@@ -308,7 +316,7 @@ Docker and Azure deployment best practices:
 
 ## Guidelines for Migration with Sample Application
 
-The repository includes a sample ColdFusion (CFML) application under `Sample/` demonstrating the migration process. It is a project-management / issue-tracking and collaboration app.
+The repository includes a sample ColdFusion (CFML) application under `Sample/ProjectTrackerSrc/` demonstrating the migration process, with a ready-to-run local environment under `Sample/Docker/`. It is a project-management / issue-tracking and collaboration app.
 
 **Sample Application Overview**:
 
@@ -319,12 +327,42 @@ The repository includes a sample ColdFusion (CFML) application under `Sample/` d
 - **Configuration**: `config/settings.cfc` reading `settings.ini.cfm` / `settings.local.cfm` (per-server)
 - **Database**: MySQL
 
+### Running the Sample Application Locally (Docker)
+
+Before (or alongside) the migration, you can run the legacy ColdFusion app *as-is* to explore its behavior. A self-contained Docker environment lives under [`Sample/Docker/`](Sample/Docker/) and starts two services: the CFML engine (**Lucee 5** via CommandBox) and the database (**MySQL 5.7**, seeded automatically from the app's shipped schema). The app source lives separately under [`Sample/ProjectTrackerSrc/`](Sample/ProjectTrackerSrc/) and is bind-mounted — no application source code is modified; environment-specific config is supplied via mounted overrides.
+
+**Prerequisites**: Docker Desktop (or Docker Engine + Compose v2).
+
+**Start it**:
+
+```powershell
+cd Sample/Docker
+docker compose up -d
+```
+
+The first run pulls images and seeds the database (~1–3 min). Then open <http://localhost:8080> and log in with a seeded account:
+
+| Username | Password | Role            |
+| -------- | -------- | --------------- |
+| `admin`  | `admin`  | Administrator   |
+| `guest`  | `guest`  | Read-only guest |
+
+**Watch logs / stop it**:
+
+```powershell
+docker compose logs -f app     # Lucee startup + request logs (wait for "Server is up")
+docker compose down            # stop & remove containers (keeps the DB volume)
+docker compose down -v         # also delete the DB volume (full reset / re-seed)
+```
+
+See [`Sample/Docker/README.md`](Sample/Docker/README.md) for how it works, the datasource/config overrides, database access on `localhost:3307`, and known limitations.
+
 ### Phase 0: Application Discovery
 
 **Prompt**: Enter the following in the chat window:
 
 ```text
-/phase0-applicationdiscovery - Analyze the ColdFusion application under Sample/
+/phase0-applicationdiscovery - Analyze the ColdFusion application under Sample/ProjectTrackerSrc/
 ```
 
 The agent will:

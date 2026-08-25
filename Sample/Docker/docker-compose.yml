@@ -1,0 +1,86 @@
+# =============================================================================
+# Local Docker infrastructure for the legacy ColdFusion app in this Sample tree
+# (Project Tracker v2.6.3 - a CFML app originally targeting ColdFusion 8 /
+#  Railo / BlueDragon, backed by MySQL).
+#
+# Engine choice: Lucee 5 (the free, open-source successor to Railo, which the
+#   app already detects/supports) via the Ortus CommandBox image.
+# Database:      MySQL 5.7 (matches the app's era; Lucee 5 bundles the MySQL
+#   Connector/J 5.1 driver, which is incompatible with MySQL 8 — it queries the
+#   'query_cache_size' server variable that MySQL 8 removed).
+#
+# Usage (from this folder):
+#   cd Sample/Docker
+#   docker compose up -d
+#   open http://localhost:8080   (login: admin / admin  or  guest / guest)
+#
+# The app source tree (../ProjectTrackerSrc) is bind-mounted; environment-
+# specific config (datasource + mapping/rootURL) is supplied WITHOUT editing the
+# source app, via mounted overrides. See ./README.md for details.
+# =============================================================================
+
+name: projecttracker-legacy
+
+services:
+  # ---------------------------------------------------------------------------
+  # MySQL 5.7 - seeded on first boot from the app's shipped schema + seed data
+  # (creates pt_* tables, an 'admin'/'admin' and 'guest'/'guest' user, and the
+  #  default application settings rows).
+  # ---------------------------------------------------------------------------
+  db:
+    image: mysql:5.7
+    container_name: pt-mysql
+    command:
+      # Relax strict/ONLY_FULL_GROUP_BY so the CF8-era SQL runs unmodified.
+      - --sql-mode=NO_ENGINE_SUBSTITUTION
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpw
+      MYSQL_DATABASE: project      # matches dsn=project in the app config
+      MYSQL_USER: project
+      MYSQL_PASSWORD: project
+    ports:
+      # Host 3307 -> container 3306 (3307 avoids clashing with a local MySQL).
+      - "3307:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+      # Auto-imported the first time the volume is empty.
+      - ../ProjectTrackerSrc/install/db_schemas/mysql.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -prootpw --silent || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # CFML engine (Lucee 5 on CommandBox). Serves the app at the web root.
+  # ---------------------------------------------------------------------------
+  app:
+    image: ortussolutions/commandbox:lucee5
+    container_name: pt-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_DIR: /app
+      # Import the "project" datasource (and Lucee admin password) on startup.
+      BOX_SERVER_CFCONFIGFILE: /config/CFConfig.json
+      # Give the server a moment; also silence the CommandBox update check.
+      BOX_SERVER_STARTTIMEOUT: "180"
+    ports:
+      - "8080:8080"
+    volumes:
+      # The legacy app source (bind mount so you can inspect/tweak live).
+      - ../ProjectTrackerSrc:/app
+      # Datasource definition (kept outside the web root).
+      - ./cfconfig/CFConfig.json:/config/CFConfig.json:ro
+      # Environment-specific config overlaid on top of the shipped files so the
+      # ProjectTrackerSrc/ source stays untouched in git. One is used when the host is
+      # "localhost", the other when it is "127.0.0.1" (see Application.cfm).
+      - ./config-overrides/settings.ini.cfm:/app/config/settings.ini.cfm:ro
+      - ./config-overrides/settings.local.cfm:/app/config/settings.local.cfm:ro
+
+volumes:
+  db-data:

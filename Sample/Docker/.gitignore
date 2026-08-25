@@ -1,0 +1,3 @@
+# Transient logs from starting the stack
+up.log
+*.log

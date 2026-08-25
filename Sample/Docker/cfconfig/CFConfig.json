@@ -1,0 +1,24 @@
+{
+    "adminPassword":"commandbox",
+    "datasources":{
+        "project":{
+            "allow":511,
+            "blob":true,
+            "class":"com.mysql.jdbc.Driver",
+            "clob":true,
+            "connectionLimit":-1,
+            "connectionTimeout":1,
+            "database":"project",
+            "dbdriver":"MySQL",
+            "dsn":"jdbc:mysql://{host}:{port}/{database}",
+            "host":"db",
+            "metaCacheTimeout":60000,
+            "password":"project",
+            "port":3306,
+            "storage":false,
+            "username":"project",
+            "validate":false,
+            "custom":"useSSL=false&useUnicode=true&characterEncoding=UTF-8&useLegacyDatetimeCode=true&zeroDateTimeBehavior=convertToNull"
+        }
+    }
+}
