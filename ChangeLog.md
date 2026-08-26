@@ -2,6 +2,16 @@
 
 This section documents the change history of the document. Revisions must be tracked by identifying a latest version number, the date of modification, the person responsible for the change, and the reason for the change.
 
+## [3.2.0] - 2026-08-26
+
+### Added
+- Per-phase **model tiering**: every prompt now declares a `model:` matched to its workload, plus a new **Model Selection & Cost** guide (tier → phase → model table with override instructions) in `README.md` and `GitHubCopilot-Migration-Framework.md`
+
+### Changed
+- Phase 2 (Planning) and Phase 3 (Code Migration) now use `Claude Opus 4.6 (copilot)` — the quality-critical phases that drive and generate the migrated Java code
+- Phase 4 (Infra), Phase 5 (Deploy), Phase 6 (CI/CD), and `/getstatus` now use `GPT-5 mini (copilot)` — templated / mechanical work
+- Phase 0 (Discovery), Phase 1 (Assessment), and the orchestrator agent's free-chat default remain on `Claude Sonnet 4.6 (copilot)`
+
 ## [3.1.0] - 2026-08-26
 
 ### Added

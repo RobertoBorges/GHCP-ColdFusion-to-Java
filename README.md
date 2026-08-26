@@ -27,6 +27,7 @@ See the full [*Change Log*](ChangeLog.md)
     - [Phase 4: Infrastructure Generation](#phase-4-infrastructure-generation)
     - [Phase 5: Deployment to Azure](#phase-5-deployment-to-azure)
     - [Phase 6: CI/CD Pipeline Setup](#phase-6-cicd-pipeline-setup)
+  - [Model Selection \& Cost](#model-selection--cost)
   - [Key Features](#key-features)
   - [Tool Setup Guide](#tool-setup-guide)
     - [Requirements](#requirements)
@@ -184,6 +185,21 @@ Configure automated deployment pipelines:
 - Configure environment separation (dev/staging/prod)
 
 **Prompt**: `/phase6-setupcicd`
+
+---
+
+## Model Selection & Cost
+
+Each phase runs on a model matched to its workload, so premium spend is concentrated on the phases that most affect migration quality while the mechanical phases run on the cheapest capable model. The model is set per phase in the `model:` field of each prompt's front-matter (`.github/prompts/*.prompt.md`).
+
+| Tier | Phases | Model | Why |
+|---|---|---|---|
+| **Reasoning** | Phase 2 (Planning), Phase 3 (Code Migration) | `Claude Opus 4.6 (copilot)` | Highest quality where it matters most — the plan drives the migration and Phase 3 generates the actual Java / Spring code |
+| **Standard** | Phase 0 (Discovery), Phase 1 (Assessment) | `Claude Sonnet 4.6 (copilot)` | Read-heavy analysis and reporting — a capable mid model is enough |
+| **Economy** | Phase 4 (Infra), Phase 5 (Deploy), Phase 6 (CI/CD), `/getstatus` | `GPT-5 mini (copilot)` | Templated IaC / pipeline YAML, `azd` commands, and status summaries |
+| **Agent default** | Free-chat with the agent (not via a phase command) | `Claude Sonnet 4.6 (copilot)` | Balanced default for ad-hoc questions |
+
+**Override the model for any phase:** edit the `model:` line in that phase's prompt file (or the `model:` in `.github/agents/Code-Migration-Modernization.agent.md` for the agent default). Use a model name exactly as it appears in your VS Code model picker — if the name doesn't match a model available on your plan, Copilot falls back to the default model for that prompt. Model costs shift by plan and over time, so pick the tier that fits your budget: higher tiers cost more per request but reduce rework on the quality-critical phases.
 
 ---
 

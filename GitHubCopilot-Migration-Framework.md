@@ -108,6 +108,19 @@ Configure automated deployment pipelines:
 - Include quality gates and security scanning
 - Configure environment separation
 
+## Model Selection & Cost
+
+Each phase runs on a model matched to its workload — premium spend is concentrated on the quality-critical phases while mechanical phases use the cheapest capable model. Set per phase via the `model:` field in each prompt's front-matter (`.github/prompts/*.prompt.md`).
+
+| Tier | Phases | Model | Why |
+|---|---|---|---|
+| **Reasoning** | Phase 2 (Planning), Phase 3 (Code Migration) | `Claude Opus 4.6 (copilot)` | The plan drives the migration and Phase 3 generates the actual Java / Spring code |
+| **Standard** | Phase 0 (Discovery), Phase 1 (Assessment) | `Claude Sonnet 4.6 (copilot)` | Read-heavy analysis and reporting |
+| **Economy** | Phase 4 (Infra), Phase 5 (Deploy), Phase 6 (CI/CD), `/getstatus` | `GPT-5 mini (copilot)` | Templated IaC / pipeline YAML, `azd` commands, status summaries |
+| **Agent default** | Free-chat with the agent | `Claude Sonnet 4.6 (copilot)` | Balanced default for ad-hoc questions |
+
+**Override:** edit the `model:` line in the phase's prompt file (or the agent file for the default). Use a name exactly as shown in your VS Code model picker; if it isn't available on your plan, Copilot falls back to the default model.
+
 ## Key Features
 
 - **CFML Engine & Framework Detection**: Automatic detection of Adobe ColdFusion, Lucee, Railo/BlueDragon; vanilla `Application.cfc`/`Application.cfm`, ColdBox, FW/1, Fusebox, Mach-II, Model-Glue, CFWheels

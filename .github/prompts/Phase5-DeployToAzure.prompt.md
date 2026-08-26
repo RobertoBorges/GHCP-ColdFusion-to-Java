@@ -1,6 +1,6 @@
 ---
 agent: 'ColdFusion to Java Migration'
-model: Claude Sonnet 4.6 (copilot)
+model: GPT-5 mini (copilot)
 tools: [vscode, execute, read, browser, edit, search, web, azure/search]
 ---
 
