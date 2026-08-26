@@ -2,7 +2,7 @@
 name: ColdFusion to Java Migration
 description: Migrate ColdFusion (CFML) applications to Java 21 / Spring Boot 3.x for Azure cloud deployment through 7 guided phases.
 argument-hint: Describe your ColdFusion (CFML) app or ask about migration (e.g., "migrate my ColdFusion app to Java with Spring Boot")
-model: Claude Sonnet 5 (copilot)
+model: Claude Sonnet 4.6 (copilot)
 tools: [vscode, execute, read, browser, edit, search, web, azure/search]
 infer: true
 handoffs:
