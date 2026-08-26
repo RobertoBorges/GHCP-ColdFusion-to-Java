@@ -1,0 +1,84 @@
+[
+  {
+    "id": "login",
+    "path": "/index.cfm",
+    "sourcePage": "login.cfm",
+    "authState": "public",
+    "states": ["default"],
+    "notes": "Login form: username, password, keep-me-signed-in, footer version line",
+    "behaviorNotes": "Posts username/password; handled by <cflogin> in Application.cfm"
+  },
+  {
+    "id": "home",
+    "path": "/index.cfm",
+    "sourcePage": "index.cfm",
+    "authState": "authenticated:user",
+    "states": ["default"],
+    "notes": "Dashboard: top nav, project list, recent activity",
+    "behaviorNotes": ""
+  },
+  {
+    "id": "allissues",
+    "path": "/allissues.cfm",
+    "sourcePage": "allissues.cfm",
+    "authState": "authenticated:user",
+    "states": ["default"],
+    "notes": "Cross-project issue list table with sort/filter controls",
+    "behaviorNotes": "Column sort links reload the page with url params"
+  },
+  {
+    "id": "allmilestones",
+    "path": "/allmilestones.cfm",
+    "sourcePage": "allmilestones.cfm",
+    "authState": "authenticated:user",
+    "states": ["default"],
+    "notes": "Milestones across projects",
+    "behaviorNotes": ""
+  },
+  {
+    "id": "alltodos",
+    "path": "/alltodos.cfm",
+    "sourcePage": "alltodos.cfm",
+    "authState": "authenticated:user",
+    "states": ["default"],
+    "notes": "To-do items across projects",
+    "behaviorNotes": ""
+  },
+  {
+    "id": "account",
+    "path": "/account.cfm",
+    "sourcePage": "account.cfm",
+    "authState": "authenticated:user",
+    "states": ["default"],
+    "notes": "Account settings form for the current user",
+    "behaviorNotes": "Client-side validation on save"
+  },
+  {
+    "id": "admin-settings",
+    "path": "/admin/settings.cfm",
+    "sourcePage": "admin/settings.cfm",
+    "authState": "authenticated:admin",
+    "states": ["default"],
+    "notes": "Application settings (admin only)",
+    "behaviorNotes": ""
+  },
+  {
+    "id": "search",
+    "path": "/search.cfm",
+    "sourcePage": "search.cfm",
+    "authState": "authenticated:user",
+    "states": ["default", "empty"],
+    "notes": "Global search form + results",
+    "behaviorNotes": "Empty state shown before a query is run"
+  },
+  {
+    "id": "mobile-home",
+    "path": "/mobile/index.cfm",
+    "sourcePage": "mobile/index.cfm",
+    "authState": "authenticated:user",
+    "viewport": "mobile",
+    "states": ["default"],
+    "notes": "Mobile interface home — captured at a phone viewport",
+    "behaviorNotes": ""
+  }
+]

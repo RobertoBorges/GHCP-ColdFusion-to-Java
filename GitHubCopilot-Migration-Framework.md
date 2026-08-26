@@ -40,6 +40,7 @@ Through a guided, AI-assisted workflow, developers can efficiently transform Col
     - `jpa-hibernate-migration/` - CF-ORM/DataMgr/`<cfquery>` to JPA/Hibernate patterns
     - `spring-boot-project-structure/` - Spring Boot project templates
     - `azure-containerization/` - Docker and Azure deployment
+    - `visual-baseline-capture/` - Screenshot capture (Phase 2) + visual spec (Phase 3)
 
 - **`Sample/`**: Example ColdFusion (CFML) application for migration demonstration
   - A legacy `Application.cfm`-style project-management / issue-tracking app
@@ -74,7 +75,8 @@ Create detailed file-by-file migration plan:
 - Document method-level mappings for services
 - Define migration order by waves (dependencies first)
 - Track business rules from source to target
-- **Output**: `reports/Migration-Plan-Detailed.md`
+- Capture a visual baseline (screenshots) of each page for Phase 3
+- **Output**: `reports/Migration-Plan-Detailed.md`, `reports/visual-baseline/`
 
 ### Phase 3: Code Migration (`/phase3-migratecode`)
 
@@ -82,7 +84,7 @@ Execute the ColdFusion to Java 21 migration:
 - Create Java 21 / Spring Boot project structure
 - Migrate handlers/pages, services, and business logic
 - Convert CF-ORM / DataMgr / `<cfquery>` to JPA / Hibernate entities
-- Transform `.cfm` / custom tags to Thymeleaf templates
+- Transform `.cfm` / custom tags to Thymeleaf templates, matching the visual baseline
 - Build and validate after each wave
 
 ### Phase 4: Infrastructure Generation (`/phase4-generateinfra`)
@@ -141,6 +143,7 @@ To reduce hallucinations during migration, the guided prompts use files in `repo
 - `reports/Application-Discovery-Report.md` — Phase 0 output
 - `reports/Technical-Assessment-Report.md` — Phase 1 output
 - `reports/Migration-Plan-Detailed.md` — Phase 2 output (file-by-file plan)
+- `reports/visual-baseline/` — Phase 2 output (per-page screenshots + manifest.json)
 
 During each phase, read the summary carefully to understand what will be delivered and what inputs are needed.
 

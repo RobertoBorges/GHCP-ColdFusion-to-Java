@@ -44,7 +44,58 @@ Extract:
 
 ---
 
-## Step 2: Define Java Project Structure
+## Step 2: Capture the Visual Baseline (Interactive)
+
+> Uses the **visual-baseline-capture** skill. This produces `reports/visual-baseline/` (screenshots +
+> `manifest.json`) — a per-page visual reference that **Phase 3 opens as a layout spec** so the migrated
+> UI matches the original. Do this **with the user**, page by page. Goal: one screenshot (plus a short
+> behavior note) per page/state of the running legacy app, mapped to its source `.cfm` file.
+
+### 2.1 Build the page list
+
+From the Phase 0 inventory (Handlers/Pages, Views, User Journeys), assemble the candidate page list and
+split it into:
+- **Auto-capturable** — public + list/detail pages reachable without special record ids.
+- **Needs context** — pages requiring a record id/param, wizard steps, modals, validation-error / empty
+  states, role-specific variants, or non-HTML output (PDF / email).
+
+### 2.2 Automated crawl (Tier 1) — when the app runs
+
+1. Confirm the app is running and reachable (for the sample: `cd Sample/Docker && docker compose up -d`
+   → http://localhost:8080). Use a **non-production** dataset — screenshots may contain data.
+2. Copy the skill templates into `reports/visual-baseline/`: `capture-screenshots.mjs` and
+   `routes.example.json` → `routes.json`.
+3. Edit `routes.json` to list the auto-capturable pages (`id`, `path`, `authState`, optional
+   `"viewport": "mobile"` for the mobile interface).
+4. Install Playwright and run (credentials via env vars, never committed):
+   ```bash
+   npm i -D playwright && npx playwright install chromium
+   node reports/visual-baseline/capture-screenshots.mjs reports/visual-baseline/routes.json
+   ```
+5. The script writes the `.png` files and `manifest.json`, recording a `captured` status per route.
+
+### 2.3 Guided manual capture (Tier 2) — always available
+
+For every **needs-context** page, give the user a numbered checklist plus this naming rule and the target
+folder `reports/visual-baseline/`:
+- Name each file `<id>.png` mirroring the route / `.cfm` (one file per state, e.g.
+  `editissue-validation-error.png`).
+
+Then add a `manifest.json` entry for each (fill `states`, `notes`, `behaviorNotes` from what the user
+tells you).
+
+### 2.4 Coverage gate
+
+Compute coverage = captured pages ÷ total inventory pages. List every not-captured page with a reason
+(N/A, deferred, blocked) and confirm coverage with the user before continuing. Render the manifest as a
+Markdown table for the plan document (Step 6).
+
+If the app **cannot** be run, skip Tier 1 and rely on Tier 2 (existing screenshots, a staging/production
+URL, or design docs). See the **visual-baseline-capture** skill for the manifest schema and full details.
+
+---
+
+## Step 3: Define Java Project Structure
 
 Based on user preferences from Phase 1, define the target Java / Spring Boot project structure:
 
@@ -134,7 +185,7 @@ Based on user preferences from Phase 1, define the target Java / Spring Boot pro
 
 ---
 
-## Step 3: Create File-by-File Migration Plan
+## Step 4: Create File-by-File Migration Plan
 
 ### 3.1 Request Handlers / Pages Migration Plan
 
@@ -312,6 +363,9 @@ For each ColdFusion `.cfm` view / custom tag:
 | **Target File** | `src/main/resources/templates/users/index.html` |
 | **Layout** | `header.cfm` / `footer.cfm` → `layout.html` (Thymeleaf layout) |
 | **Handler** | `UserController.list()` |
+| **Visual Baseline** | `visual-baseline/users-index.png` — states: default (see `manifest.json`) |
+
+> Phase 3 opens the **Visual Baseline** screenshot(s) above as the layout target when generating this template.
 
 #### View Components Used
 
@@ -448,7 +502,7 @@ public void processEmailQueue() {
 
 ---
 
-## Step 4: Define Migration Order
+## Step 5: Define Migration Order
 
 **CRITICAL**: Define the order files should be migrated based on dependencies.
 
@@ -501,7 +555,7 @@ public void processEmailQueue() {
 
 ---
 
-## Step 5: Generate Migration Plan Document
+## Step 6: Generate Migration Plan Document
 
 Create `reports/Migration-Plan-Detailed.md`:
 
@@ -519,10 +573,22 @@ Create `reports/Migration-Plan-Detailed.md`:
 - **Files with Business Logic**: [X]
 - **Estimated Total Effort**: [X hours]
 - **Migration Waves**: 6
+- **Pages Captured (Visual Baseline)**: [X] of [Y]
 
 ## Target Project Structure
 
 [Full project structure diagram]
+
+## Visual Baseline
+
+Per-page screenshots captured in Phase 2 live in `reports/visual-baseline/` and are cataloged in
+`manifest.json`. Phase 3 opens the matching screenshot as the layout target for each view.
+
+| Page (id) | Source `.cfm` | Screenshot | States | Auth | Target View |
+|-----------|---------------|------------|--------|------|-------------|
+| home | `index.cfm` | `visual-baseline/home.png` | default | user | _TBD in Phase 3_ |
+
+**Coverage**: [X] of [Y] pages captured. Not captured: [list with reasons].
 
 ## Migration Plan by Component
 
@@ -577,7 +643,7 @@ The migration will follow the wave order defined in this plan.
 
 ---
 
-## Step 6: Update Status Report
+## Step 7: Update Status Report
 
 Update `reports/Report-Status.md`:
 
@@ -588,6 +654,7 @@ Update `reports/Report-Status.md`:
 - **Files Documented**: [X]
 - **Business Rules Mapped**: [X]
 - **Estimated Effort**: [X] hours
+- **Visual Baseline**: [X]/[Y] pages captured
 
 ## Next Step
 
@@ -632,8 +699,9 @@ At the end of Phase 2, you should have:
 3. ✅ Every component mapped with properties and relationships
 4. ✅ Every service mapped with methods and business logic
 5. ✅ Every view mapped with Thymeleaf equivalents
-6. ✅ Migration order defined by waves
-7. ✅ Business logic preservation checklist
-8. ✅ `reports/Report-Status.md` updated
+6. ✅ `reports/visual-baseline/` captured — screenshots + `manifest.json` (visual spec for Phase 3)
+7. ✅ Migration order defined by waves
+8. ✅ Business logic preservation checklist
+9. ✅ `reports/Report-Status.md` updated
 
 **Next Step**: `/phase3-migratecode` to execute the migration.

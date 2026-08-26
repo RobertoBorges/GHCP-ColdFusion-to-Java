@@ -39,6 +39,7 @@ See the full [*Change Log*](ChangeLog.md)
     - [jpa-hibernate-migration](#jpa-hibernate-migration)
     - [spring-boot-project-structure](#spring-boot-project-structure)
     - [azure-containerization](#azure-containerization)
+    - [visual-baseline-capture](#visual-baseline-capture)
   - [Guidelines for Migration with Sample Application](#guidelines-for-migration-with-sample-application)
     - [Running the Sample Application Locally (Docker)](#running-the-sample-application-locally-docker)
     - [Phase 0: Application Discovery](#phase-0-application-discovery-1)
@@ -136,7 +137,8 @@ Create a detailed file-by-file migration plan:
 - Document method-level mappings for services
 - Define migration order by waves (dependencies first)
 - Track business rules from source to target locations
-- Generate `reports/Migration-Plan-Detailed.md`
+- Capture a visual baseline (screenshots) of each page for Phase 3
+- Generate `reports/Migration-Plan-Detailed.md` and `reports/visual-baseline/`
 
 **Prompt**: `/phase2-createmigrationplan`
 
@@ -147,7 +149,7 @@ Execute the ColdFusion to Java 21 migration following the plan:
 - Create Java 21 / Spring Boot project structure
 - Migrate handlers/pages, services, and business logic
 - Convert CF-ORM / DataMgr / `<cfquery>` to JPA / Hibernate entities
-- Transform `.cfm` / custom tags to Thymeleaf templates
+- Transform `.cfm` / custom tags to Thymeleaf templates, matching the visual baseline
 - Validate with builds after each wave
 
 **Prompt**: `/phase3-migratecode`
@@ -251,7 +253,8 @@ Configure automated deployment pipelines:
     ├── azure-containerization/                  # Docker & Azure container deployment
     ├── jpa-hibernate-migration/                 # CF-ORM/DataMgr/<cfquery> to JPA/Hibernate patterns
     ├── coldfusion-to-java-mapping/              # ColdFusion to Java mapping reference
-    └── spring-boot-project-structure/           # Spring Boot project templates
+    ├── spring-boot-project-structure/           # Spring Boot project templates
+    └── visual-baseline-capture/                 # Screenshot capture (Phase 2) + visual spec (Phase 3)
 Sample/                                          # Sample app + local run environment
 ├── Docker/                                      # Local Docker environment to run the legacy app as-is
 │   ├── docker-compose.yml                      # Lucee 5 (app) + MySQL 5.7 (db) services
@@ -311,6 +314,15 @@ Docker and Azure deployment best practices:
 - docker-compose for local development
 - Azure Container Apps configuration
 - Health checks and security
+
+### visual-baseline-capture
+
+Visual baseline capture for the UI migration:
+
+- Hybrid capture (automated Playwright crawl + guided manual) of each page/state
+- `manifest.json` mapping each `.cfm` page → screenshot → target Thymeleaf view
+- Used in Phase 2 to record what the app looked like; opened in Phase 3 as the layout spec
+- Optional visual-fidelity check (re-screenshot the migrated page and diff vs. baseline)
 
 ---
 
@@ -403,6 +415,7 @@ The agent will create a detailed file-by-file migration plan with:
 - Method-level mappings for complex logic
 - Migration order by waves
 - Business rules tracking
+- A visual baseline (screenshots) of each page under `reports/visual-baseline/`
 
 ### Phase 3: Code Migration
 
@@ -417,7 +430,7 @@ The agent will:
 1. Create Java 21 / Spring Boot project structure
 2. Migrate handlers/pages and services
 3. Convert database access to JPA / Hibernate
-4. Transform views to Thymeleaf
+4. Transform views to Thymeleaf, matching each page's visual baseline screenshot
 5. Build and validate after each wave
 
 ### Phase 4: Infrastructure Generation

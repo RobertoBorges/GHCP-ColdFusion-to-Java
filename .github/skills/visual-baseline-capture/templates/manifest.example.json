@@ -1,0 +1,58 @@
+[
+  {
+    "id": "login",
+    "sourcePage": "login.cfm",
+    "url": "/index.cfm",
+    "authState": "public",
+    "params": null,
+    "viewport": "1280-full",
+    "screenshot": "login.png",
+    "states": ["default"],
+    "notes": "Login form: username, password, keep-me-signed-in, footer version line",
+    "behaviorNotes": "Posts username/password; handled by <cflogin> in Application.cfm",
+    "targetView": "",
+    "captured": "ok"
+  },
+  {
+    "id": "home",
+    "sourcePage": "index.cfm",
+    "url": "/index.cfm",
+    "authState": "authenticated:user",
+    "params": null,
+    "viewport": "1280-full",
+    "screenshot": "home.png",
+    "states": ["default"],
+    "notes": "Dashboard: top nav, project list, recent activity",
+    "behaviorNotes": "",
+    "targetView": "",
+    "captured": "ok"
+  },
+  {
+    "id": "mobile-home",
+    "sourcePage": "mobile/index.cfm",
+    "url": "/mobile/index.cfm",
+    "authState": "authenticated:user",
+    "params": null,
+    "viewport": "mobile",
+    "screenshot": "mobile-home-mobile.png",
+    "states": ["default"],
+    "notes": "Mobile interface home — captured at a phone viewport",
+    "behaviorNotes": "",
+    "targetView": "",
+    "captured": "ok"
+  },
+  {
+    "id": "editissue-validation-error",
+    "sourcePage": "editIssue.cfm",
+    "url": "/editIssue.cfm",
+    "authState": "authenticated:user",
+    "params": "?i=42",
+    "viewport": "1280-full",
+    "screenshot": "editissue-validation-error.png",
+    "states": ["validation-error"],
+    "notes": "Edit-issue form showing required-field validation messages",
+    "behaviorNotes": "Manual capture (Tier 2): needs an existing issue id and a failed submit",
+    "targetView": "",
+    "captured": "manual"
+  }
+]

@@ -24,6 +24,7 @@ Before starting, read the migration plan:
 ```
 read_file: reports/Migration-Plan-Detailed.md
 read_file: reports/Technical-Assessment-Report.md
+read_file: reports/visual-baseline/manifest.json
 ```
 
 Confirm you understand:
@@ -32,6 +33,7 @@ Confirm you understand:
 - [ ] All file mappings
 - [ ] Business logic locations
 - [ ] Package mappings
+- [ ] Visual baseline available (`reports/visual-baseline/`) for the views you will migrate
 
 ---
 
@@ -787,6 +789,14 @@ For each ColdFusion `.cfm` view in the Migration Plan:
 read_file: [.cfm template path]
 ```
 
+**Open the visual baseline** — the screenshot for this page from `reports/visual-baseline/manifest.json`
+— and use it as the layout acceptance target. Match structure, spacing, labels, table columns,
+navigation, and branding/CSS to the original:
+```
+read_file: reports/visual-baseline/[screenshot].png
+```
+After generating the template, record its path back into the manifest `targetView` field for this page.
+
 **Apply CFML → Thymeleaf conversion:**
 
 | CFML | Thymeleaf |
@@ -817,6 +827,18 @@ cp -r resources/js/* src/main/resources/static/js/
 # Copy images
 cp -r public/images/* src/main/resources/static/images/
 ```
+
+#### 5.4 Visual Fidelity Check (Optional but recommended)
+
+After migrating the views, verify the result against the visual baseline captured in Phase 2:
+
+1. Run the Spring Boot app (`./mvnw spring-boot:run`) with a dataset comparable to the baseline.
+2. Re-screenshot each migrated route at the same viewport and compare side-by-side (or pixel-diff)
+   against `reports/visual-baseline/<id>.png`. You can reuse the **visual-baseline-capture** skill's
+   `capture-screenshots.mjs` against the new app URL, writing into a `reports/visual-baseline/migrated/`
+   folder.
+3. For each view record fidelity as ✅ match / ⚠️ minor diff / ❌ rework, and fix high-impact gaps
+   (layout, missing sections, broken tables/nav, wrong branding) before moving on.
 
 ---
 
@@ -1014,7 +1036,7 @@ At the end of Phase 3:
 2. ✅ All JPA entities migrated with relationships
 3. ✅ All services migrated with business logic
 4. ✅ All controllers migrated with actions
-5. ✅ All views migrated from `.cfm` / custom tags to Thymeleaf
+5. ✅ All views migrated from `.cfm` / custom tags to Thymeleaf, matched to the visual baseline
 6. ✅ Filters, interceptors, and scheduled tasks
 7. ✅ Static assets copied
 8. ✅ Application builds successfully

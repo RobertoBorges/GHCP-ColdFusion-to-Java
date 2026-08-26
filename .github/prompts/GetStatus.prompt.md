@@ -80,7 +80,8 @@ Ensure the status file contains:
 - **Status**: [Status]
 - **Files Planned**: [X] files
 - **Estimated Effort**: [X] hours
-- **Report**: `reports/Migration-Plan-Detailed.md`
+- **Pages Captured (Visual Baseline)**: [X] of [Y]
+- **Report**: `reports/Migration-Plan-Detailed.md`, `reports/visual-baseline/`
 
 ### Phase 3: Code Migration
 - **Status**: [Status]
@@ -119,6 +120,7 @@ Ensure the status file contains:
 - [Application Discovery Report](reports/Application-Discovery-Report.md)
 - [Technical Assessment Report](reports/Technical-Assessment-Report.md)
 - [Detailed Migration Plan](reports/Migration-Plan-Detailed.md)
+- [Visual Baseline](reports/visual-baseline/manifest.json)
 ```
 
 ### Status Icons

@@ -47,6 +47,7 @@ During the migration process, manage files under 'reports/':
   - reports/Application-Discovery-Report.md (Phase 0 output)
   - reports/Technical-Assessment-Report.md (Phase 1 output)
   - reports/Migration-Plan-Detailed.md (Phase 2 output - file-by-file plan)
+  - reports/visual-baseline/ (Phase 2 output - per-page screenshots + manifest.json)
   
   If these files don't exist yet, create them during the appropriate phase.
   Use these files to track progress and make informed decisions.
@@ -114,13 +115,14 @@ graph LR
 - Document method-level mappings
 - Define migration order by waves
 - Map business rules to target locations
-- **Output**: `reports/Migration-Plan-Detailed.md`
+- Capture a **visual baseline** (screenshots) of each page for Phase 3
+- **Output**: `reports/Migration-Plan-Detailed.md`, `reports/visual-baseline/`
 
 ### Phase 3: Code Migration - `/phase3-migratecode`
 - Create Java / Spring Boot project structure
 - Execute migration following the plan
 - Preserve all business logic
-- Migrate UI from `.cfm` / `<cfoutput>` and custom tags to Thymeleaf
+- Migrate UI from `.cfm` / `<cfoutput>` and custom tags to Thymeleaf, matching the visual baseline
 - Validate with builds after each wave
 
 ### Phase 4: Infrastructure - `/phase4-generateinfra`
@@ -146,6 +148,7 @@ The detailed mapping tables for ColdFusion to Java conversions are available as 
 - **spring-boot-project-structure** - Project structure templates and scaffolding
 - **azure-containerization** - Docker and container deployment best practices
 - **jpa-hibernate-migration** - CF-ORM / DataMgr / `<cfquery>` to JPA / Hibernate patterns
+- **visual-baseline-capture** - Screenshot capture of each page (Phase 2) + visual spec for UI migration (Phase 3)
 
 Skills are located in `.github/skills/` and include code examples and templates.
 
@@ -240,9 +243,11 @@ Detailed best practices with code templates are available in skills. Key princip
 @agent rule: ALWAYS document method-level mappings for services
 @agent rule: ALWAYS define migration order by waves (dependencies first)
 @agent rule: ALWAYS track business rules with source and target locations
+@agent rule: ALWAYS capture a visual baseline (screenshots) of each page into reports/visual-baseline/ with the user
 
 ### Phase 3 Rules
 @agent rule: ALWAYS follow the Phase 2 migration plan exactly
+@agent rule: ALWAYS open the matching visual baseline screenshot as the layout target when migrating a view
 @agent rule: ALWAYS read CFML source (`.cfm` / `.cfc`, 2000 lines at a time) before writing Java
 @agent rule: ALWAYS build after each wave and fix errors immediately
 @agent rule: ALWAYS preserve ALL business logic from ColdFusion

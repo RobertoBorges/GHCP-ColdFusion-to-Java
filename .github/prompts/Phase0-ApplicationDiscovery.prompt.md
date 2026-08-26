@@ -409,6 +409,9 @@ Create `reports/Application-Discovery-Report.md` with the following structure:
 ### Views ([Count])
 [Table of all views/.cfm templates]
 
+> This page/view list and the User Journeys below seed the **visual baseline** capture in Phase 2
+> (a screenshot of each page). Note which pages need a record id/param or a specific role to render.
+
 ### Lifecycle & Filters ([Count])
 [Table of Application.cfc hooks and cross-cutting logic]
 

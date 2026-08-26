@@ -2,6 +2,18 @@
 
 This section documents the change history of the document. Revisions must be tracked by identifying a latest version number, the date of modification, the person responsible for the change, and the reason for the change.
 
+## [3.1.0] - 2026-08-26
+
+### Added
+- New **visual-baseline-capture** skill: hybrid capture (automated Playwright crawl + guided manual) of a screenshot per page/state of the running legacy app, cataloged in a `manifest.json` that maps each `.cfm` page → screenshot → target Thymeleaf view. Ships a `capture-screenshots.mjs` Playwright template plus `routes`/`manifest` examples
+- Phase 2 gained a **"Capture the Visual Baseline"** step that produces `reports/visual-baseline/` (screenshots + manifest), a coverage gate, a `Visual Reference` field on each view plan, and a Visual Baseline section in the plan document
+- Phase 3 now opens the matching screenshot as the **layout spec** when migrating each view, with an optional visual-fidelity (regression) check that re-screenshots the migrated page and diffs it against the baseline
+- Local Docker environment under `Sample/Docker/` to run the sample ColdFusion app (Lucee 5 + MySQL 5.7) so its baseline can be captured
+
+### Changed
+- Agent guardrails: capturing a visual baseline is now a Phase 2 deliverable, and consulting it is a Phase 3 rule; skills list, reports list, and phase summaries updated
+- Phase 0 discovery notes that the page/view inventory and user journeys seed the Phase 2 capture list
+
 ## [3.0.0] - 2026-08-25
 
 ### Changed
